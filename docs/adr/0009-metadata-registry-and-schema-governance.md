@@ -1,6 +1,6 @@
 # ADR-0009: Metadata registry and schema governance
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

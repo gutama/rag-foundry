@@ -1,6 +1,6 @@
 # ADR-0021: OKF import, export, Git curation, and publication
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

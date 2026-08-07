@@ -1,6 +1,6 @@
 # ADR-0011: Ontology representation, constraints, and versioning
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

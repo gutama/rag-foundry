@@ -1,6 +1,6 @@
 # ADR-0019: Graph provenance and deletion semantics
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0002: Canonical document, evidence, and semantic models
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

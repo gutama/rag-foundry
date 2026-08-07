@@ -1,6 +1,6 @@
 # ADR-0004: Compact and scale storage profiles
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

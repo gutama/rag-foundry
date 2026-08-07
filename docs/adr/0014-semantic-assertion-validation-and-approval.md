@@ -1,6 +1,6 @@
 # ADR-0014: Semantic assertion validation and approval
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

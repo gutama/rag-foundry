@@ -1,6 +1,6 @@
 # ADR-0008: Parser routing and OCR fallback
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

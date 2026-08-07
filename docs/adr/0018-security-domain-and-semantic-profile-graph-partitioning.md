@@ -1,6 +1,6 @@
 # ADR-0018: Security-domain and semantic-profile graph partitioning
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

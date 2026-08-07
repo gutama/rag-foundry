@@ -1,6 +1,6 @@
 # ADR-0001: Modular monolith and worker topology
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

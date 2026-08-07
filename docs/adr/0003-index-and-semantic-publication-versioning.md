@@ -1,6 +1,6 @@
 # ADR-0003: Index and semantic publication versioning
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

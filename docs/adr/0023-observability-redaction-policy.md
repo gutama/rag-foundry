@@ -1,6 +1,6 @@
 # ADR-0023: Observability redaction policy
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

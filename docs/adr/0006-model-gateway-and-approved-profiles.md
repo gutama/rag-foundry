@@ -1,6 +1,6 @@
 # ADR-0006: Model gateway and approved profiles
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

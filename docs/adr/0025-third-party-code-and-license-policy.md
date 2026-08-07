@@ -1,6 +1,6 @@
 # ADR-0025: Third-party code and license policy
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

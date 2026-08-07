@@ -1,6 +1,6 @@
 # ADR-0010: Taxonomy representation and SKOS interoperability
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

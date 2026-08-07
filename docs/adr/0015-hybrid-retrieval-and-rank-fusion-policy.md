@@ -1,6 +1,6 @@
 # ADR-0015: Hybrid retrieval and rank-fusion policy
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

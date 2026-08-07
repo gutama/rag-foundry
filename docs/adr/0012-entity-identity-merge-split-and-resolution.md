@@ -1,6 +1,6 @@
 # ADR-0012: Entity identity, merge, split, and resolution strategy
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

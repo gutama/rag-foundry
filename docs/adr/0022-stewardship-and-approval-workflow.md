@@ -1,6 +1,6 @@
 # ADR-0022: Stewardship and approval workflow
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0013: Curated versus extracted knowledge
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context

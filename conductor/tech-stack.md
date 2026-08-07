@@ -22,4 +22,7 @@
 - **Embeddings & Reranking:** sentence-transformers, HuggingFace Cross-Encoder Reranker
 
 ## Observability & Evaluation
-- **Tracing & Evals:** Langfuse, OpenTelemetry, Custom Golden Dataset Evaluator
+- **Tracing & Monitoring:** Langfuse, OpenTelemetry
+- **RAG Metric Engine:** Ragas (faithfulness, context precision, answer relevancy, synthetic test generation)
+- **CI/CD Release Gates:** DeepEval (pytest-native LLM assertions, regression testing, quality thresholds)
+- **Domain-Specific Evaluation:** Custom Golden Dataset Evaluator (authorization leakage, taxonomy, ontology, graph, OKF metrics)

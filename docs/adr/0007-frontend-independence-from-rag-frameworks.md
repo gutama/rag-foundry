@@ -1,6 +1,6 @@
 # ADR-0007: Frontend independence from RAG frameworks
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-07
 
 ## Context
