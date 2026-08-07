@@ -3,7 +3,7 @@
 ## Overview
 - **Track ID:** `core_foundation`
 - **Type:** Feature
-- **Status:** New
+- **Status:** Completed
 
 ## Artifacts
 - [Specification](./spec.md)
