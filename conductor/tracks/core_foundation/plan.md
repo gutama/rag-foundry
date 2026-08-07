@@ -5,7 +5,7 @@
   - [x] Write failing test to verify environment importability and config loading
   - [x] Configure dependency management (`pyproject.toml` / `requirements.txt`)
   - [x] Implement configuration module (`config.py`) using Pydantic Settings
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Database Schema & Migration Foundation
 - [ ] Task: Set up Async SQLAlchemy 2.0 models and Alembic migrations
