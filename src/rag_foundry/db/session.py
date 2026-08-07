@@ -28,7 +28,9 @@ def create_async_engine_from_config(url: Optional[str] = None) -> AsyncEngine:
     return create_async_engine(url, echo=False)
 
 
-def get_sessionmaker(url: Optional[str] = None) -> async_sessionmaker[AsyncSession]:
+def get_sessionmaker(
+    url: Optional[str] = None,
+) -> async_sessionmaker[AsyncSession]:
     """Get a configured async_sessionmaker factory.
 
     Args:
@@ -48,7 +50,9 @@ def get_sessionmaker(url: Optional[str] = None) -> async_sessionmaker[AsyncSessi
 
 
 @asynccontextmanager
-async def get_async_session(url: Optional[str] = None) -> AsyncIterator[AsyncSession]:
+async def get_async_session(
+    url: Optional[str] = None,
+) -> AsyncIterator[AsyncSession]:
     """Async context manager providing a transactional AsyncSession.
 
     Args:

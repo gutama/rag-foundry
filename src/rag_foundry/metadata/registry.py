@@ -32,7 +32,7 @@ class ValidationResult(BaseModel):
 
 
 class MetadataRegistry:
-    """Registry for managing versioned metadata schemas and validating metadata."""
+    """Registry for managing versioned metadata schemas and validation."""
 
     def __init__(self) -> None:
         self._schemas: Dict[Tuple[str, str], RegisteredSchema] = {}
@@ -56,7 +56,8 @@ class MetadataRegistry:
             RegisteredSchema object.
 
         Raises:
-            ValueError: If schema version is already registered or schema is invalid.
+            ValueError: If schema version is already registered or schema
+                is invalid.
         """
         key = (name, version)
         if key in self._schemas:

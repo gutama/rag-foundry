@@ -10,7 +10,7 @@ from rag_foundry.db.models import TaxonomyConcept
 
 
 class TaxonomyService:
-    """Service for managing SKOS concept schemes and candidate entity resolution."""
+    """Service for managing SKOS concept schemes & entity resolution."""
 
     def __init__(self, session: AsyncSession) -> None:
         """Initialize TaxonomyService with an AsyncSession.
@@ -37,7 +37,8 @@ class TaxonomyService:
             scheme_id: UUID of concept scheme.
             uri: Unique URI identifier.
             pref_labels: Multilingual preferred labels (lang -> label).
-            alt_labels: Multilingual alternative labels (lang -> list of labels).
+            alt_labels: Multilingual alternative labels
+                (lang -> list of labels).
             broader_uris: URIs of broader concepts.
             related_uris: URIs of related concepts.
             status: Governance status (draft, approved, deprecated).
@@ -116,7 +117,7 @@ class TaxonomyService:
     async def resolve_candidate_entities(
         self, mention: str, scheme_id: Optional[uuid.UUID] = None
     ) -> List[TaxonomyConcept]:
-        """Resolve surface text mention against preferred and alternative labels.
+        """Resolve surface text mention against preferred and alt labels.
 
         Args:
             mention: Surface text mention to match.
