@@ -24,11 +24,11 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: SKOS Taxonomy & Identity Resolution Baseline
-- [ ] Task: Implement SKOS Concept Scheme and Taxonomy Service
-  - [ ] Write failing tests for TaxonomyConcept CRUD operations and label lookups (prefLabel, altLabel)
-  - [ ] Write failing tests for broader/narrower concept relationship queries
-  - [ ] Implement `TaxonomyService` and basic candidate entity resolution interface
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement SKOS Concept Scheme and Taxonomy Service (b0e6bf7)
+  - [x] Write failing tests for TaxonomyConcept CRUD operations and label lookups (prefLabel, altLabel)
+  - [x] Write failing tests for broader/narrower concept relationship queries
+  - [x] Implement `TaxonomyService` and basic candidate entity resolution interface
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (0c86db6)
