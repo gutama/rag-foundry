@@ -29,3 +29,6 @@
   - [ ] Write failing tests for broader/narrower concept relationship queries
   - [ ] Implement `TaxonomyService` and basic candidate entity resolution interface
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (0c86db6)
