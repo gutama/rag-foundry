@@ -35,3 +35,8 @@ htmlcov/
 .DS_Store
 .vscode/
 .idea/
+
+# Database & Storage
+*.db
+*.sqlite
+*.sqlite3
