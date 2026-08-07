@@ -16,12 +16,12 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Knowledge Governance Plane (MetadataRegistry)
-- [ ] Task: Implement Pydantic v2 Metadata Registry & Validation Service
-  - [ ] Write failing unit tests for `MetadataRegistry` schema registration and versioning
-  - [ ] Write failing unit tests for field-level metadata validation against versioned schemas
-  - [ ] Implement `MetadataRegistry` service with Pydantic v2 JSON Schema support
-  - [ ] Verify unit test suite passes with >80% coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement Pydantic v2 Metadata Registry & Validation Service (2b5a243)
+  - [x] Write failing unit tests for `MetadataRegistry` schema registration and versioning
+  - [x] Write failing unit tests for field-level metadata validation against versioned schemas
+  - [x] Implement `MetadataRegistry` service with Pydantic v2 JSON Schema support
+  - [x] Verify unit test suite passes with >80% coverage
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: SKOS Taxonomy & Identity Resolution Baseline
 - [ ] Task: Implement SKOS Concept Scheme and Taxonomy Service
