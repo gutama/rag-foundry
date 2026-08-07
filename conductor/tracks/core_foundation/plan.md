@@ -1,10 +1,10 @@
 # Implementation Plan: Core Framework & Knowledge Governance Foundation
 
 ## Phase 1: Environment & Project Structure Setup
-- [ ] Task: Initialize Python project dependencies & environment (pytest, asyncpg, sqlalchemy, alembic, pydantic)
-  - [ ] Write failing test to verify environment importability and config loading
-  - [ ] Configure dependency management (`pyproject.toml` / `requirements.txt`)
-  - [ ] Implement configuration module (`config.py`) using Pydantic Settings
+- [x] Task: Initialize Python project dependencies & environment (pytest, asyncpg, sqlalchemy, alembic, pydantic) (bc5b6be)
+  - [x] Write failing test to verify environment importability and config loading
+  - [x] Configure dependency management (`pyproject.toml` / `requirements.txt`)
+  - [x] Implement configuration module (`config.py`) using Pydantic Settings
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Database Schema & Migration Foundation
