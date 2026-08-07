@@ -1,0 +1,31 @@
+# Implementation Plan: Core Framework & Knowledge Governance Foundation
+
+## Phase 1: Environment & Project Structure Setup
+- [ ] Task: Initialize Python project dependencies & environment (pytest, asyncpg, sqlalchemy, alembic, pydantic)
+  - [ ] Write failing test to verify environment importability and config loading
+  - [ ] Configure dependency management (`pyproject.toml` / `requirements.txt`)
+  - [ ] Implement configuration module (`config.py`) using Pydantic Settings
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 2: Database Schema & Migration Foundation
+- [ ] Task: Set up Async SQLAlchemy 2.0 models and Alembic migrations
+  - [ ] Write failing tests for Database engine connection and session context manager
+  - [ ] Write failing tests for core ORM models (Document, Chunk, MetadataSchema, TaxonomyConcept, AuditEvent)
+  - [ ] Implement SQLAlchemy ORM models and set up Alembic migration environment
+  - [ ] Run baseline Alembic migration
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 3: Knowledge Governance Plane (MetadataRegistry)
+- [ ] Task: Implement Pydantic v2 Metadata Registry & Validation Service
+  - [ ] Write failing unit tests for `MetadataRegistry` schema registration and versioning
+  - [ ] Write failing unit tests for field-level metadata validation against versioned schemas
+  - [ ] Implement `MetadataRegistry` service with Pydantic v2 JSON Schema support
+  - [ ] Verify unit test suite passes with >80% coverage
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 4: SKOS Taxonomy & Identity Resolution Baseline
+- [ ] Task: Implement SKOS Concept Scheme and Taxonomy Service
+  - [ ] Write failing tests for TaxonomyConcept CRUD operations and label lookups (prefLabel, altLabel)
+  - [ ] Write failing tests for broader/narrower concept relationship queries
+  - [ ] Implement `TaxonomyService` and basic candidate entity resolution interface
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
