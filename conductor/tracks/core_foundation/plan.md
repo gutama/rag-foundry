@@ -8,12 +8,12 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Database Schema & Migration Foundation
-- [ ] Task: Set up Async SQLAlchemy 2.0 models and Alembic migrations
-  - [ ] Write failing tests for Database engine connection and session context manager
-  - [ ] Write failing tests for core ORM models (Document, Chunk, MetadataSchema, TaxonomyConcept, AuditEvent)
-  - [ ] Implement SQLAlchemy ORM models and set up Alembic migration environment
-  - [ ] Run baseline Alembic migration
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Set up Async SQLAlchemy 2.0 models and Alembic migrations (75e0d06)
+  - [x] Write failing tests for Database engine connection and session context manager
+  - [x] Write failing tests for core ORM models (Document, Chunk, MetadataSchema, TaxonomyConcept, AuditEvent)
+  - [x] Implement SQLAlchemy ORM models and set up Alembic migration environment
+  - [x] Run baseline Alembic migration
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Knowledge Governance Plane (MetadataRegistry)
 - [ ] Task: Implement Pydantic v2 Metadata Registry & Validation Service
