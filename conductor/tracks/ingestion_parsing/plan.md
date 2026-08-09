@@ -1,0 +1,32 @@
+# Implementation Plan: Source Ingestion, Parser Router, and Canonical Document Processing
+
+## Phase 1: Object Storage Interface & Connectors
+- [ ] Task: Implement Object Storage Provider and Ingestion Connectors
+  - [ ] Write failing unit tests for `ObjectStorageProvider` (Local & MinIO/S3 backends)
+  - [ ] Write failing unit tests for File Upload API (`/api/v1/sources/upload`) and `FilesystemConnector`
+  - [ ] Implement `ObjectStorageProvider` interface and local/S3 adapters
+  - [ ] Implement File Upload endpoint and `FilesystemConnector`
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 2: Parser Architecture & Multi-Format Adapters (PDF & Office Docs)
+- [ ] Task: Implement Parser Adapter Architecture, Native PDF, and Office Document Parsers
+  - [ ] Write failing unit tests for `ParserProvider` interface and canonical `CanonicalDocument` / `DocumentElement` output
+  - [ ] Write failing unit tests for `NativePDFParserAdapter` (PDF) and `DoclingParserAdapter` (PDF, DOCX, XLSX, PPTX)
+  - [ ] Implement `NativePDFParserAdapter` (fast text, page numbers, bounding box extraction)
+  - [ ] Implement `DoclingParserAdapter` for PDF & Office formats (DOCX tables/headings, XLSX sheets/grids, PPTX slides)
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 3: OCR Fallback Router & Parsing Diagnostics (ADR-0008)
+- [ ] Task: Implement Intelligent Parser Router and OCR Fallback
+  - [ ] Write failing unit tests for `ParserRouter` text quality scoring (density < 50 chars/page)
+  - [ ] Write failing unit tests for `PaddleOCRProviderAdapter` and automatic fallback routing
+  - [ ] Implement `ParserRouter` score evaluator and `PaddleOCRProviderAdapter`
+  - [ ] Implement `ParsingDiagnostics` recorder on document versions
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 4: Asynchronous Ingestion Worker & Pipeline Integration (ADR-0001)
+- [ ] Task: Implement Async Ingestion Pipeline and Job Tracking
+  - [ ] Write failing integration tests for end-to-end `IngestionPipeline` and DB job status state machine (`pending`, `processing`, `parsed`, `failed`)
+  - [ ] Implement `IngestionPipeline` service and async job worker task
+  - [ ] Verify test suite passes with ≥80% coverage across ingestion & parsing packages
+- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
