@@ -3,7 +3,7 @@
 ## Overview
 - **Track ID:** `taxonomy_classification`
 - **Type:** Feature
-- **Status:** New
+- **Status:** Completed
 
 ## Artifacts
 - [Specification](./spec.md)
