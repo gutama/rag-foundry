@@ -3,7 +3,7 @@
 ## Overview
 - **Track ID:** `ingestion_parsing`
 - **Type:** Feature
-- **Status:** New
+- **Status:** Completed
 
 ## Artifacts
 - [Specification](./spec.md)
