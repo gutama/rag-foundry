@@ -9,12 +9,12 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Parser Architecture & Multi-Format Adapters (PDF & Office Docs)
-- [ ] Task: Implement Parser Adapter Architecture, Native PDF, and Office Document Parsers
-  - [ ] Write failing unit tests for `ParserProvider` interface and canonical `CanonicalDocument` / `DocumentElement` output
-  - [ ] Write failing unit tests for `NativePDFParserAdapter` (PDF) and `DoclingParserAdapter` (PDF, DOCX, XLSX, PPTX)
-  - [ ] Implement `NativePDFParserAdapter` (fast text, page numbers, bounding box extraction)
-  - [ ] Implement `DoclingParserAdapter` for PDF & Office formats (DOCX tables/headings, XLSX sheets/grids, PPTX slides)
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement Parser Adapter Architecture, Native PDF, and Office Document Parsers (b9d6ba7)
+  - [x] Write failing unit tests for `ParserProvider` interface and canonical `CanonicalDocument` / `DocumentElement` output
+  - [x] Write failing unit tests for `NativePDFParserAdapter` (PDF) and `DoclingParserAdapter` (PDF, DOCX, XLSX, PPTX)
+  - [x] Implement `NativePDFParserAdapter` (fast text, page numbers, bounding box extraction)
+  - [x] Implement `DoclingParserAdapter` for PDF & Office formats (DOCX tables/headings, XLSX sheets/grids, PPTX slides)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: OCR Fallback Router & Parsing Diagnostics (ADR-0008)
 - [ ] Task: Implement Intelligent Parser Router and OCR Fallback
