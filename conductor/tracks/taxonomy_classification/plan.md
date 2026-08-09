@@ -1,12 +1,12 @@
 # Implementation Plan: SKOS Taxonomy MVP, Classification, and Query Expansion
 
 ## Phase 1: SKOS Concept Management & Multi-Format Serialization (ADR-0010)
-- [ ] Task: Implement SKOS Concept Scheme Models and Importer/Exporter
-  - [ ] Write failing unit tests for SKOS scheme registration, concept relationships, and deprecation governance
-  - [ ] Write failing unit tests for RDF/Turtle (.ttl), JSON-LD, and CSV concept scheme importers & exporters
-  - [ ] Implement `SKOSConceptScheme` schema, deprecation check, and audit event logger
-  - [ ] Implement `SKOSImporter` and `SKOSExporter` supporting Turtle, JSON-LD, and CSV
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement SKOS Concept Scheme Models and Importer/Exporter (dc4ba1c)
+  - [x] Write failing unit tests for SKOS scheme registration, concept relationships, and deprecation governance
+  - [x] Write failing unit tests for RDF/Turtle (.ttl), JSON-LD, and CSV concept scheme importers & exporters
+  - [x] Implement `SKOSConceptScheme` schema, deprecation check, and audit event logger
+  - [x] Implement `SKOSImporter` and `SKOSExporter` supporting Turtle, JSON-LD, and CSV
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: SKOS Browser Service & Concept Hierarchy Navigation
 - [ ] Task: Implement SKOS Browser Service
