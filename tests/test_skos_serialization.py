@@ -1,4 +1,5 @@
-"""Unit tests for SKOS concept schemes, deprecation governance, and multi-format importers/exporters."""
+"""Unit tests for SKOS concept schemes and multi-format importers."""
+# Also covers deprecation governance and CSV/JSON-LD exporters.
 
 import pytest
 
@@ -8,9 +9,14 @@ def sample_csv_skos():
     """Generate sample SKOS concept scheme in CSV format."""
     return (
         "uri,prefLabel,altLabels,broaderURIs,isDeprecated\n"
-        "http://id.example.org/finance,Finance,Banking;Economics,,false\n"
-        "http://id.example.org/banking,Banking,Retail Banking,http://id.example.org/finance,false\n"
-        "http://id.example.org/legacy_tax,Legacy Tax,Old Tax,http://id.example.org/finance,true\n"
+        "http://id.example.org/finance,Finance,"
+        "Banking;Economics,,false\n"
+        "http://id.example.org/banking,Banking,"
+        "Retail Banking,"
+        "http://id.example.org/finance,false\n"
+        "http://id.example.org/legacy_tax,Legacy Tax,"
+        "Old Tax,"
+        "http://id.example.org/finance,true\n"
     )
 
 

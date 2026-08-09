@@ -1,4 +1,5 @@
-"""Unit tests for TaxonomyBrowserService concept tree traversals and label search."""
+"""Unit tests for TaxonomyBrowserService concept tree traversals."""
+# Also covers label search functionality.
 
 import pytest
 
@@ -43,7 +44,7 @@ def sample_taxonomy_scheme():
 
 @pytest.mark.asyncio
 async def test_taxonomy_browser_roots_and_narrower(sample_taxonomy_scheme):
-    """Test TaxonomyBrowserService root concept lookups and narrower tree traversals."""
+    """Test root concept lookups and narrower tree traversals."""
     from rag_foundry.taxonomy.browser import TaxonomyBrowserService
 
     browser = TaxonomyBrowserService(scheme=sample_taxonomy_scheme)

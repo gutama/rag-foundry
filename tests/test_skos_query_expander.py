@@ -44,7 +44,7 @@ def sample_expansion_scheme():
 async def test_taxonomy_query_expander_synonym_and_hierarchy(
     sample_expansion_scheme,
 ):
-    """Test TaxonomyQueryExpander expands query with synonyms, broader, and narrower concepts (ADR-0016)."""
+    """Test query expansion with synonyms, broader, and narrower concepts."""
     from rag_foundry.taxonomy.query_expander import TaxonomyQueryExpander
 
     expander = TaxonomyQueryExpander(scheme=sample_expansion_scheme)
@@ -65,7 +65,7 @@ async def test_taxonomy_query_expander_synonym_and_hierarchy(
 
 @pytest.mark.asyncio
 async def test_taxonomy_query_expander_lexical_output(sample_expansion_scheme):
-    """Test TaxonomyQueryExpander generates formatted expanded lexical query string."""
+    """Test TaxonomyQueryExpander generates expanded lexical query."""
     from rag_foundry.taxonomy.query_expander import TaxonomyQueryExpander
 
     expander = TaxonomyQueryExpander(scheme=sample_expansion_scheme)

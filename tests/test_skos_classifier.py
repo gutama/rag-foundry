@@ -1,4 +1,5 @@
-"""Unit tests for SemanticClassifier, text mention resolution, and governance tagging."""
+"""Unit tests for SemanticClassifier and governance tagging."""
+# Covers text mention resolution and deprecated concept flagging.
 
 import pytest
 
@@ -57,12 +58,18 @@ async def test_semantic_classifier_label_matching(sample_skos_scheme):
 async def test_semantic_classifier_flags_deprecated_concepts(
     sample_skos_scheme,
 ):
-    """Test SemanticClassifier flagging deprecated concepts in classification output."""
+    """Test SemanticClassifier flags deprecated concepts."""
     from rag_foundry.taxonomy.classifier import SemanticClassifier
 
     classifier = SemanticClassifier(scheme=sample_skos_scheme)
-    text = "Contracts referenced the historical LIBOR Rate for interest computation."
+    text = (
+        "Contracts referenced the historical"
+        " LIBOR Rate for interest computation."
+    )
 
     result = classifier.classify_text(text=text)
     assert len(result.deprecated_concepts_flagged) == 1
-    assert "http://id.example.org/legacy_rate" in result.deprecated_concepts_flagged
+    assert (
+        "http://id.example.org/legacy_rate"
+        in result.deprecated_concepts_flagged
+    )
