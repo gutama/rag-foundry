@@ -1,8 +1,0 @@
-{
-  "id": "ingestion_parsing",
-  "type": "feature",
-  "status": "completed",
-  "title": "Source Ingestion, Parser Router, and Canonical Document Processing",
-  "created_at": "2026-08-09T16:04:20Z",
-  "updated_at": "2026-08-09T19:18:00Z"
-}
