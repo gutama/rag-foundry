@@ -9,10 +9,10 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: SKOS Browser Service & Concept Hierarchy Navigation
-- [ ] Task: Implement SKOS Browser Service
-  - [ ] Write failing unit tests for `TaxonomyBrowserService` (root concepts, broader/narrower tree traversals, search by label)
-  - [ ] Implement `TaxonomyBrowserService` and URI lookups
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement SKOS Browser Service (602da92)
+  - [x] Write failing unit tests for `TaxonomyBrowserService` (root concepts, broader/narrower tree traversals, search by label)
+  - [x] Implement `TaxonomyBrowserService` and URI lookups
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Semantic Classification Engine & Metadata Tagging
 - [ ] Task: Implement Document & Chunk Semantic Classifier
