@@ -25,8 +25,8 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Asynchronous Ingestion Worker & Pipeline Integration (ADR-0001)
-- [ ] Task: Implement Async Ingestion Pipeline and Job Tracking
-  - [ ] Write failing integration tests for end-to-end `IngestionPipeline` and DB job status state machine (`pending`, `processing`, `parsed`, `failed`)
-  - [ ] Implement `IngestionPipeline` service and async job worker task
-  - [ ] Verify test suite passes with ≥80% coverage across ingestion & parsing packages
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement Async Ingestion Pipeline and Job Tracking (7ce938a)
+  - [x] Write failing integration tests for end-to-end `IngestionPipeline` and DB job status state machine (`pending`, `processing`, `parsed`, `failed`)
+  - [x] Implement `IngestionPipeline` service and async job worker task
+  - [x] Verify test suite passes with ≥80% coverage across ingestion & parsing packages
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
