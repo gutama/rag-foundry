@@ -1,12 +1,12 @@
 # Implementation Plan: Source Ingestion, Parser Router, and Canonical Document Processing
 
 ## Phase 1: Object Storage Interface & Connectors
-- [ ] Task: Implement Object Storage Provider and Ingestion Connectors
-  - [ ] Write failing unit tests for `ObjectStorageProvider` (Local & MinIO/S3 backends)
-  - [ ] Write failing unit tests for File Upload API (`/api/v1/sources/upload`) and `FilesystemConnector`
-  - [ ] Implement `ObjectStorageProvider` interface and local/S3 adapters
-  - [ ] Implement File Upload endpoint and `FilesystemConnector`
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement Object Storage Provider and Ingestion Connectors (1f51958)
+  - [x] Write failing unit tests for `ObjectStorageProvider` (Local & MinIO/S3 backends)
+  - [x] Write failing unit tests for File Upload API (`/api/v1/sources/upload`) and `FilesystemConnector`
+  - [x] Implement `ObjectStorageProvider` interface and local/S3 adapters
+  - [x] Implement File Upload endpoint and `FilesystemConnector`
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Parser Architecture & Multi-Format Adapters (PDF & Office Docs)
 - [ ] Task: Implement Parser Adapter Architecture, Native PDF, and Office Document Parsers
