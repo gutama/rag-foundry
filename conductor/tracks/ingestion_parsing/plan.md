@@ -17,12 +17,12 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: OCR Fallback Router & Parsing Diagnostics (ADR-0008)
-- [ ] Task: Implement Intelligent Parser Router and OCR Fallback
-  - [ ] Write failing unit tests for `ParserRouter` text quality scoring (density < 50 chars/page)
-  - [ ] Write failing unit tests for `PaddleOCRProviderAdapter` and automatic fallback routing
-  - [ ] Implement `ParserRouter` score evaluator and `PaddleOCRProviderAdapter`
-  - [ ] Implement `ParsingDiagnostics` recorder on document versions
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement Intelligent Parser Router and OCR Fallback (6d8e61c)
+  - [x] Write failing unit tests for `ParserRouter` text quality scoring (density < 50 chars/page)
+  - [x] Write failing unit tests for `PaddleOCRProviderAdapter` and automatic fallback routing
+  - [x] Implement `ParserRouter` score evaluator and `PaddleOCRProviderAdapter`
+  - [x] Implement `ParsingDiagnostics` recorder on document versions
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Asynchronous Ingestion Worker & Pipeline Integration (ADR-0001)
 - [ ] Task: Implement Async Ingestion Pipeline and Job Tracking
