@@ -22,8 +22,8 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Taxonomy Query Expansion Service & Pipeline Integration (ADR-0016)
-- [ ] Task: Implement SKOS Query Expansion Service
-  - [ ] Write failing unit tests for `TaxonomyQueryExpander` (prefLabel, altLabel synonyms, broader & narrower terms with weight decay)
-  - [ ] Implement `TaxonomyQueryExpander` service (sub-15ms execution)
-  - [ ] Verify test suite passes with ≥80% code coverage across taxonomy packages
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement SKOS Query Expansion Service (059d386)
+  - [x] Write failing unit tests for `TaxonomyQueryExpander` (prefLabel, altLabel synonyms, broader & narrower terms with weight decay)
+  - [x] Write failing unit tests for `TaxonomyQueryExpander` service (sub-15ms execution)
+  - [x] Verify test suite passes with ≥80% code coverage across taxonomy packages
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
