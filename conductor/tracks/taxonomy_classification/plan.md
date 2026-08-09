@@ -15,11 +15,11 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Semantic Classification Engine & Metadata Tagging
-- [ ] Task: Implement Document & Chunk Semantic Classifier
-  - [ ] Write failing unit tests for `SemanticClassifier` (surface label matching + fuzzy distance + zero-shot classification)
-  - [ ] Write failing unit tests for `taxonomy_version_id` tagging and audit log emission on deprecated concepts
-  - [ ] Implement `SemanticClassifier` service and document/chunk metadata tagging
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement Document & Chunk Semantic Classifier (a23346d)
+  - [x] Write failing unit tests for `SemanticClassifier` (surface label matching + fuzzy distance + zero-shot classification)
+  - [x] Write failing unit tests for `taxonomy_version_id` tagging and audit log emission on deprecated concepts
+  - [x] Implement `SemanticClassifier` service and document/chunk metadata tagging
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Taxonomy Query Expansion Service & Pipeline Integration (ADR-0016)
 - [ ] Task: Implement SKOS Query Expansion Service
