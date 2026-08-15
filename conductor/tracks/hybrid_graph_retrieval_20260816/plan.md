@@ -27,10 +27,10 @@
   - [x] Write unit and integration tests for `LexicalRetriever` (tsvector/tsquery, rank weighting, dictionary configs) in `tests/test_lexical_retrieval.py`
   - [x] Implement `LexicalRetriever` in `src/rag_foundry/retrieval/lexical.py`
   - [x] Verify exact phrase matching and FTS ranking performance
-- [ ] Task: Implement SKOS Query Expansion Pipeline Integration
-  - [ ] Write unit tests for query expansion bridge connecting `TaxonomyQueryExpander` to lexical searches in `tests/test_expansion_retrieval.py`
-  - [ ] Implement expansion bridge and term tracing in `src/rag_foundry/retrieval/expansion.py`
-  - [ ] Verify relationship decay weights and term lineage preservation
+- [x] Task: Implement SKOS Query Expansion Pipeline Integration 84235b6
+  - [x] Write unit tests for query expansion bridge connecting `TaxonomyQueryExpander` to lexical searches in `tests/test_expansion_retrieval.py`
+  - [x] Implement expansion bridge and term tracing in `src/rag_foundry/retrieval/expansion.py`
+  - [x] Verify relationship decay weights and term lineage preservation
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Hybrid Fusion, Reranking & Graph Provider
