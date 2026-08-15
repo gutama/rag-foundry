@@ -8,6 +8,9 @@ from rag_foundry.retrieval.embeddings import (
     EmbeddingService,
     MockDeterministicEmbeddingService,
 )
+from rag_foundry.retrieval.expansion import (
+    TaxonomyExpansionBridge,
+)
 from rag_foundry.retrieval.lexical import (
     LexicalRecord,
     LexicalRetriever,
@@ -43,5 +46,6 @@ __all__ = [
     "RetrievalResult",
     "SecurityAuthorizationError",
     "SecurityContext",
+    "TaxonomyExpansionBridge",
     "WorkspaceGuard",
 ]
