@@ -1,5 +1,9 @@
 """Retrieval and semantic search module for RAG Foundry."""
 
+from rag_foundry.retrieval.embeddings import (
+    EmbeddingService,
+    MockDeterministicEmbeddingService,
+)
 from rag_foundry.retrieval.models import (
     AbstentionResult,
     BoundingBox,
@@ -18,7 +22,9 @@ from rag_foundry.retrieval.security import (
 __all__ = [
     "AbstentionResult",
     "BoundingBox",
+    "EmbeddingService",
     "EvidenceItem",
+    "MockDeterministicEmbeddingService",
     "RankedChunk",
     "RetrievalFilter",
     "RetrievalQuery",
