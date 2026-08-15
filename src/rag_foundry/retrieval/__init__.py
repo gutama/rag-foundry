@@ -14,6 +14,13 @@ from rag_foundry.retrieval.expansion import (
 from rag_foundry.retrieval.fusion import (
     ReciprocalRankFusion,
 )
+from rag_foundry.retrieval.graph import (
+    ConformanceGraphProvider,
+    GraphEntity,
+    GraphEvidence,
+    GraphRelation,
+    GraphRetrievalProvider,
+)
 from rag_foundry.retrieval.lexical import (
     LexicalRecord,
     LexicalRetriever,
@@ -41,11 +48,16 @@ from rag_foundry.retrieval.security import (
 __all__ = [
     "AbstentionResult",
     "BoundingBox",
+    "ConformanceGraphProvider",
     "CrossEncoderReranker",
     "DenseVectorRecord",
     "DenseVectorRetriever",
     "EmbeddingService",
     "EvidenceItem",
+    "GraphEntity",
+    "GraphEvidence",
+    "GraphRelation",
+    "GraphRetrievalProvider",
     "LexicalRecord",
     "LexicalRetriever",
     "MockDeterministicEmbeddingService",
