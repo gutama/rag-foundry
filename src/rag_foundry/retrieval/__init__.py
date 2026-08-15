@@ -8,6 +8,10 @@ from rag_foundry.retrieval.embeddings import (
     EmbeddingService,
     MockDeterministicEmbeddingService,
 )
+from rag_foundry.retrieval.lexical import (
+    LexicalRecord,
+    LexicalRetriever,
+)
 from rag_foundry.retrieval.models import (
     AbstentionResult,
     BoundingBox,
@@ -30,6 +34,8 @@ __all__ = [
     "DenseVectorRetriever",
     "EmbeddingService",
     "EvidenceItem",
+    "LexicalRecord",
+    "LexicalRetriever",
     "MockDeterministicEmbeddingService",
     "RankedChunk",
     "RetrievalFilter",
