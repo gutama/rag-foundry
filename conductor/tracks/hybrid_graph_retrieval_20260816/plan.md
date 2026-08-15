@@ -1,6 +1,6 @@
 # Implementation Plan: Hybrid & Graph Retrieval Engine with Claim-Level Citations & Governance
 
-## Phase 1: Core Interfaces, Data Models & Security Guard
+## Phase 1: Core Interfaces, Data Models & Security Guard [checkpoint: efcf3c6]
 - [x] Task: Define Retrieval Data Models & Query Structures 21b40b9
   - [x] Write unit tests for `RetrievalQuery`, `RetrievalResult`, `RankedChunk`, `EvidenceItem`, and `AbstentionResult` in `tests/test_retrieval_models.py`
   - [x] Implement Pydantic v2 domain models and interfaces in `src/rag_foundry/retrieval/models.py`
@@ -9,7 +9,7 @@
   - [x] Write unit tests for `SecurityContext`, `WorkspaceGuard`, and ACL permission rules in `tests/test_retrieval_security.py`
   - [x] Implement security validator in `src/rag_foundry/retrieval/security.py`
   - [x] Verify security rejection on cross-workspace/unauthorized queries
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) efcf3c6
 
 ## Phase 2: Dense Vector Retrieval & Embedding Abstraction
 - [ ] Task: Implement Embedding Service & Mock Provider
