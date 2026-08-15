@@ -11,6 +11,9 @@ from rag_foundry.retrieval.embeddings import (
 from rag_foundry.retrieval.expansion import (
     TaxonomyExpansionBridge,
 )
+from rag_foundry.retrieval.fusion import (
+    ReciprocalRankFusion,
+)
 from rag_foundry.retrieval.lexical import (
     LexicalRecord,
     LexicalRetriever,
@@ -41,6 +44,7 @@ __all__ = [
     "LexicalRetriever",
     "MockDeterministicEmbeddingService",
     "RankedChunk",
+    "ReciprocalRankFusion",
     "RetrievalFilter",
     "RetrievalQuery",
     "RetrievalResult",
