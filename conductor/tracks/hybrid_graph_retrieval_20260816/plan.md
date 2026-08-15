@@ -34,10 +34,10 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 84235b6
 
 ## Phase 4: Hybrid Fusion, Reranking & Graph Provider
-- [ ] Task: Implement Reciprocal Rank Fusion (RRF) Engine
-  - [ ] Write unit tests for RRF algorithm with configurable $k$, weights, and multi-source list fusion in `tests/test_fusion.py`
-  - [ ] Implement `ReciprocalRankFusion` in `src/rag_foundry/retrieval/fusion.py`
-  - [ ] Verify rank merging, tie-breaking, and score normalization
+- [x] Task: Implement Reciprocal Rank Fusion (RRF) Engine 46b605c
+  - [x] Write unit tests for RRF algorithm with configurable $k$, weights, and multi-source list fusion in `tests/test_fusion.py`
+  - [x] Implement `ReciprocalRankFusion` in `src/rag_foundry/retrieval/fusion.py`
+  - [x] Verify rank merging, tie-breaking, and score normalization
 - [ ] Task: Implement Cross-Encoder & Scoring Reranker Service
   - [ ] Write unit tests for `RerankerService` and fallback scoring re-rankers in `tests/test_reranker.py`
   - [ ] Implement reranker classes in `src/rag_foundry/retrieval/reranking.py`
