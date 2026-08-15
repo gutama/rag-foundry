@@ -9,6 +9,11 @@ from rag_foundry.retrieval.models import (
     RetrievalQuery,
     RetrievalResult,
 )
+from rag_foundry.retrieval.security import (
+    SecurityAuthorizationError,
+    SecurityContext,
+    WorkspaceGuard,
+)
 
 __all__ = [
     "AbstentionResult",
@@ -18,4 +23,7 @@ __all__ = [
     "RetrievalFilter",
     "RetrievalQuery",
     "RetrievalResult",
+    "SecurityAuthorizationError",
+    "SecurityContext",
+    "WorkspaceGuard",
 ]
