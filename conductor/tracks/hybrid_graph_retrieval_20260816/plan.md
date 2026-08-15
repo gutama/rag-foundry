@@ -49,10 +49,10 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 9a81b4c
 
 ## Phase 5: Citation Assembly, Abstention Engine & End-to-End Orchestrator
-- [ ] Task: Implement Grounded Evidence Assembly & Abstention Engine
-  - [ ] Write unit tests for claim-level citations, coordinate linking, and low-confidence abstention in `tests/test_evidence_abstention.py`
-  - [ ] Implement evidence assembler and abstention evaluator in `src/rag_foundry/retrieval/evidence.py`
-  - [ ] Verify abstention trigger when confidence is below configured threshold
+- [x] Task: Implement Grounded Evidence Assembly & Abstention Engine 835fc1c
+  - [x] Write unit tests for claim-level citations, coordinate linking, and low-confidence abstention in `tests/test_evidence_abstention.py`
+  - [x] Implement evidence assembler and abstention evaluator in `src/rag_foundry/retrieval/evidence.py`
+  - [x] Verify abstention trigger when confidence is below configured threshold
 - [ ] Task: Implement End-to-End Hybrid Retrieval Orchestrator
   - [ ] Write end-to-end integration tests for `RetrievalPipeline` in `tests/test_retrieval_pipeline.py`
   - [ ] Implement `RetrievalPipeline` orchestrator unifying all stages in `src/rag_foundry/retrieval/pipeline.py`
