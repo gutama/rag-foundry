@@ -38,6 +38,9 @@ from rag_foundry.retrieval.models import (
     RetrievalQuery,
     RetrievalResult,
 )
+from rag_foundry.retrieval.pipeline import (
+    RetrievalPipeline,
+)
 from rag_foundry.retrieval.reranking import (
     CrossEncoderReranker,
     RerankerService,
@@ -71,6 +74,7 @@ __all__ = [
     "ReciprocalRankFusion",
     "RerankerService",
     "RetrievalFilter",
+    "RetrievalPipeline",
     "RetrievalQuery",
     "RetrievalResult",
     "ScoringReranker",
