@@ -5,10 +5,10 @@
   - [x] Write unit tests for `RetrievalQuery`, `RetrievalResult`, `RankedChunk`, `EvidenceItem`, and `AbstentionResult` in `tests/test_retrieval_models.py`
   - [x] Implement Pydantic v2 domain models and interfaces in `src/rag_foundry/retrieval/models.py`
   - [x] Verify test suite passes and meets coverage standards
-- [ ] Task: Implement Authorization-Before-Retrieval Security Guard
-  - [ ] Write unit tests for `SecurityContext`, `WorkspaceGuard`, and ACL permission rules in `tests/test_retrieval_security.py`
-  - [ ] Implement security validator in `src/rag_foundry/retrieval/security.py`
-  - [ ] Verify security rejection on cross-workspace/unauthorized queries
+- [x] Task: Implement Authorization-Before-Retrieval Security Guard efcf3c6
+  - [x] Write unit tests for `SecurityContext`, `WorkspaceGuard`, and ACL permission rules in `tests/test_retrieval_security.py`
+  - [x] Implement security validator in `src/rag_foundry/retrieval/security.py`
+  - [x] Verify security rejection on cross-workspace/unauthorized queries
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Dense Vector Retrieval & Embedding Abstraction
