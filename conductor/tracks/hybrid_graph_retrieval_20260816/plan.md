@@ -53,8 +53,8 @@
   - [x] Write unit tests for claim-level citations, coordinate linking, and low-confidence abstention in `tests/test_evidence_abstention.py`
   - [x] Implement evidence assembler and abstention evaluator in `src/rag_foundry/retrieval/evidence.py`
   - [x] Verify abstention trigger when confidence is below configured threshold
-- [ ] Task: Implement End-to-End Hybrid Retrieval Orchestrator
-  - [ ] Write end-to-end integration tests for `RetrievalPipeline` in `tests/test_retrieval_pipeline.py`
-  - [ ] Implement `RetrievalPipeline` orchestrator unifying all stages in `src/rag_foundry/retrieval/pipeline.py`
-  - [ ] Verify full lifecycle: Auth -> Expansion -> Parallel Retrieval -> RRF -> Reranking -> Citations/Abstention
+- [x] Task: Implement End-to-End Hybrid Retrieval Orchestrator 2dfd798
+  - [x] Write end-to-end integration tests for `RetrievalPipeline` in `tests/test_retrieval_pipeline.py`
+  - [x] Implement `RetrievalPipeline` orchestrator unifying all stages in `src/rag_foundry/retrieval/pipeline.py`
+  - [x] Verify full lifecycle: Auth -> Expansion -> Parallel Retrieval -> RRF -> Reranking -> Citations/Abstention
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
