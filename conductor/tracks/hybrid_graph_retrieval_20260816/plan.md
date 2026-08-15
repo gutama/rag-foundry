@@ -22,7 +22,7 @@
   - [x] Verify metadata and workspace filtering during dense vector search
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) c64bd5f
 
-## Phase 3: Governed Lexical Search & SKOS Query Expansion
+## Phase 3: Governed Lexical Search & SKOS Query Expansion [checkpoint: 84235b6]
 - [x] Task: Implement PostgreSQL Full-Text Search Retriever 5a90b84
   - [x] Write unit and integration tests for `LexicalRetriever` (tsvector/tsquery, rank weighting, dictionary configs) in `tests/test_lexical_retrieval.py`
   - [x] Implement `LexicalRetriever` in `src/rag_foundry/retrieval/lexical.py`
@@ -31,7 +31,7 @@
   - [x] Write unit tests for query expansion bridge connecting `TaxonomyQueryExpander` to lexical searches in `tests/test_expansion_retrieval.py`
   - [x] Implement expansion bridge and term tracing in `src/rag_foundry/retrieval/expansion.py`
   - [x] Verify relationship decay weights and term lineage preservation
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 84235b6
 
 ## Phase 4: Hybrid Fusion, Reranking & Graph Provider
 - [ ] Task: Implement Reciprocal Rank Fusion (RRF) Engine
