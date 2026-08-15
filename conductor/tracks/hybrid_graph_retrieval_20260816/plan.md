@@ -23,10 +23,10 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) c64bd5f
 
 ## Phase 3: Governed Lexical Search & SKOS Query Expansion
-- [ ] Task: Implement PostgreSQL Full-Text Search Retriever
-  - [ ] Write unit and integration tests for `LexicalRetriever` (tsvector/tsquery, rank weighting, dictionary configs) in `tests/test_lexical_retrieval.py`
-  - [ ] Implement `LexicalRetriever` in `src/rag_foundry/retrieval/lexical.py`
-  - [ ] Verify exact phrase matching and FTS ranking performance
+- [x] Task: Implement PostgreSQL Full-Text Search Retriever 5a90b84
+  - [x] Write unit and integration tests for `LexicalRetriever` (tsvector/tsquery, rank weighting, dictionary configs) in `tests/test_lexical_retrieval.py`
+  - [x] Implement `LexicalRetriever` in `src/rag_foundry/retrieval/lexical.py`
+  - [x] Verify exact phrase matching and FTS ranking performance
 - [ ] Task: Implement SKOS Query Expansion Pipeline Integration
   - [ ] Write unit tests for query expansion bridge connecting `TaxonomyQueryExpander` to lexical searches in `tests/test_expansion_retrieval.py`
   - [ ] Implement expansion bridge and term tracing in `src/rag_foundry/retrieval/expansion.py`
