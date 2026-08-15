@@ -11,7 +11,7 @@
   - [x] Verify security rejection on cross-workspace/unauthorized queries
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) efcf3c6
 
-## Phase 2: Dense Vector Retrieval & Embedding Abstraction
+## Phase 2: Dense Vector Retrieval & Embedding Abstraction [checkpoint: c64bd5f]
 - [x] Task: Implement Embedding Service & Mock Provider f04c8ee
   - [x] Write unit tests for `EmbeddingService` interface and deterministic test provider in `tests/test_embedding_service.py`
   - [x] Implement `EmbeddingService` abstraction in `src/rag_foundry/retrieval/embeddings.py`
@@ -20,7 +20,7 @@
   - [x] Write unit and integration tests for `DenseVectorRetriever` with cosine similarity in `tests/test_dense_retrieval.py`
   - [x] Implement `DenseVectorRetriever` in `src/rag_foundry/retrieval/dense.py`
   - [x] Verify metadata and workspace filtering during dense vector search
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) c64bd5f
 
 ## Phase 3: Governed Lexical Search & SKOS Query Expansion
 - [ ] Task: Implement PostgreSQL Full-Text Search Retriever
