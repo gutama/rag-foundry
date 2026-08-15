@@ -33,7 +33,7 @@
   - [x] Verify relationship decay weights and term lineage preservation
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 84235b6
 
-## Phase 4: Hybrid Fusion, Reranking & Graph Provider
+## Phase 4: Hybrid Fusion, Reranking & Graph Provider [checkpoint: 9a81b4c]
 - [x] Task: Implement Reciprocal Rank Fusion (RRF) Engine 46b605c
   - [x] Write unit tests for RRF algorithm with configurable $k$, weights, and multi-source list fusion in `tests/test_fusion.py`
   - [x] Implement `ReciprocalRankFusion` in `src/rag_foundry/retrieval/fusion.py`
@@ -46,7 +46,7 @@
   - [x] Write unit tests for `GraphRetrievalProvider` interface and `ConformanceGraphProvider` in `tests/test_graph_retrieval.py`
   - [x] Implement graph provider and subgraph evidence formatters in `src/rag_foundry/retrieval/graph.py`
   - [x] Verify entity linking and relationship attribution formatting
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 9a81b4c
 
 ## Phase 5: Citation Assembly, Abstention Engine & End-to-End Orchestrator
 - [ ] Task: Implement Grounded Evidence Assembly & Abstention Engine
