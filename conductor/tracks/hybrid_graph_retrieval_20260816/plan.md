@@ -16,10 +16,10 @@
   - [x] Write unit tests for `EmbeddingService` interface and deterministic test provider in `tests/test_embedding_service.py`
   - [x] Implement `EmbeddingService` abstraction in `src/rag_foundry/retrieval/embeddings.py`
   - [x] Verify embedding generation and vector dimensionality validation
-- [ ] Task: Implement pgvector Dense Retriever
-  - [ ] Write unit and integration tests for `DenseVectorRetriever` with cosine similarity in `tests/test_dense_retrieval.py`
-  - [ ] Implement `DenseVectorRetriever` in `src/rag_foundry/retrieval/dense.py`
-  - [ ] Verify metadata and workspace filtering during dense vector search
+- [x] Task: Implement pgvector Dense Retriever c64bd5f
+  - [x] Write unit and integration tests for `DenseVectorRetriever` with cosine similarity in `tests/test_dense_retrieval.py`
+  - [x] Implement `DenseVectorRetriever` in `src/rag_foundry/retrieval/dense.py`
+  - [x] Verify metadata and workspace filtering during dense vector search
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Governed Lexical Search & SKOS Query Expansion
