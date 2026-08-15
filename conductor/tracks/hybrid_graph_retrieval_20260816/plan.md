@@ -42,10 +42,10 @@
   - [x] Write unit tests for `RerankerService` and fallback scoring re-rankers in `tests/test_reranker.py`
   - [x] Implement reranker classes in `src/rag_foundry/retrieval/reranking.py`
   - [x] Verify top-k candidate scoring and ordering
-- [ ] Task: Implement Graph Retrieval Provider Interface & Conformance Provider
-  - [ ] Write unit tests for `GraphRetrievalProvider` interface and `ConformanceGraphProvider` in `tests/test_graph_retrieval.py`
-  - [ ] Implement graph provider and subgraph evidence formatters in `src/rag_foundry/retrieval/graph.py`
-  - [ ] Verify entity linking and relationship attribution formatting
+- [x] Task: Implement Graph Retrieval Provider Interface & Conformance Provider 9a81b4c
+  - [x] Write unit tests for `GraphRetrievalProvider` interface and `ConformanceGraphProvider` in `tests/test_graph_retrieval.py`
+  - [x] Implement graph provider and subgraph evidence formatters in `src/rag_foundry/retrieval/graph.py`
+  - [x] Verify entity linking and relationship attribution formatting
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 5: Citation Assembly, Abstention Engine & End-to-End Orchestrator
