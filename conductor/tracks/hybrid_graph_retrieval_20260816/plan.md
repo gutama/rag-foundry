@@ -12,10 +12,10 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) efcf3c6
 
 ## Phase 2: Dense Vector Retrieval & Embedding Abstraction
-- [ ] Task: Implement Embedding Service & Mock Provider
-  - [ ] Write unit tests for `EmbeddingService` interface and deterministic test provider in `tests/test_embedding_service.py`
-  - [ ] Implement `EmbeddingService` abstraction in `src/rag_foundry/retrieval/embeddings.py`
-  - [ ] Verify embedding generation and vector dimensionality validation
+- [x] Task: Implement Embedding Service & Mock Provider f04c8ee
+  - [x] Write unit tests for `EmbeddingService` interface and deterministic test provider in `tests/test_embedding_service.py`
+  - [x] Implement `EmbeddingService` abstraction in `src/rag_foundry/retrieval/embeddings.py`
+  - [x] Verify embedding generation and vector dimensionality validation
 - [ ] Task: Implement pgvector Dense Retriever
   - [ ] Write unit and integration tests for `DenseVectorRetriever` with cosine similarity in `tests/test_dense_retrieval.py`
   - [ ] Implement `DenseVectorRetriever` in `src/rag_foundry/retrieval/dense.py`
