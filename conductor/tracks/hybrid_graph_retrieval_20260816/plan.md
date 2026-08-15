@@ -48,7 +48,7 @@
   - [x] Verify entity linking and relationship attribution formatting
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 9a81b4c
 
-## Phase 5: Citation Assembly, Abstention Engine & End-to-End Orchestrator
+## Phase 5: Citation Assembly, Abstention Engine & End-to-End Orchestrator [checkpoint: 2dfd798]
 - [x] Task: Implement Grounded Evidence Assembly & Abstention Engine 835fc1c
   - [x] Write unit tests for claim-level citations, coordinate linking, and low-confidence abstention in `tests/test_evidence_abstention.py`
   - [x] Implement evidence assembler and abstention evaluator in `src/rag_foundry/retrieval/evidence.py`
@@ -57,4 +57,4 @@
   - [x] Write end-to-end integration tests for `RetrievalPipeline` in `tests/test_retrieval_pipeline.py`
   - [x] Implement `RetrievalPipeline` orchestrator unifying all stages in `src/rag_foundry/retrieval/pipeline.py`
   - [x] Verify full lifecycle: Auth -> Expansion -> Parallel Retrieval -> RRF -> Reranking -> Citations/Abstention
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 2dfd798
