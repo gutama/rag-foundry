@@ -27,6 +27,11 @@ from rag_foundry.retrieval.models import (
     RetrievalQuery,
     RetrievalResult,
 )
+from rag_foundry.retrieval.reranking import (
+    CrossEncoderReranker,
+    RerankerService,
+    ScoringReranker,
+)
 from rag_foundry.retrieval.security import (
     SecurityAuthorizationError,
     SecurityContext,
@@ -36,6 +41,7 @@ from rag_foundry.retrieval.security import (
 __all__ = [
     "AbstentionResult",
     "BoundingBox",
+    "CrossEncoderReranker",
     "DenseVectorRecord",
     "DenseVectorRetriever",
     "EmbeddingService",
@@ -45,9 +51,11 @@ __all__ = [
     "MockDeterministicEmbeddingService",
     "RankedChunk",
     "ReciprocalRankFusion",
+    "RerankerService",
     "RetrievalFilter",
     "RetrievalQuery",
     "RetrievalResult",
+    "ScoringReranker",
     "SecurityAuthorizationError",
     "SecurityContext",
     "TaxonomyExpansionBridge",
