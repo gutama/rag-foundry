@@ -8,6 +8,10 @@ from rag_foundry.retrieval.embeddings import (
     EmbeddingService,
     MockDeterministicEmbeddingService,
 )
+from rag_foundry.retrieval.evidence import (
+    AbstentionEngine,
+    EvidenceAssembler,
+)
 from rag_foundry.retrieval.expansion import (
     TaxonomyExpansionBridge,
 )
@@ -46,6 +50,7 @@ from rag_foundry.retrieval.security import (
 )
 
 __all__ = [
+    "AbstentionEngine",
     "AbstentionResult",
     "BoundingBox",
     "ConformanceGraphProvider",
@@ -53,6 +58,7 @@ __all__ = [
     "DenseVectorRecord",
     "DenseVectorRetriever",
     "EmbeddingService",
+    "EvidenceAssembler",
     "EvidenceItem",
     "GraphEntity",
     "GraphEvidence",
