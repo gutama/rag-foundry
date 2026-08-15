@@ -38,10 +38,10 @@
   - [x] Write unit tests for RRF algorithm with configurable $k$, weights, and multi-source list fusion in `tests/test_fusion.py`
   - [x] Implement `ReciprocalRankFusion` in `src/rag_foundry/retrieval/fusion.py`
   - [x] Verify rank merging, tie-breaking, and score normalization
-- [ ] Task: Implement Cross-Encoder & Scoring Reranker Service
-  - [ ] Write unit tests for `RerankerService` and fallback scoring re-rankers in `tests/test_reranker.py`
-  - [ ] Implement reranker classes in `src/rag_foundry/retrieval/reranking.py`
-  - [ ] Verify top-k candidate scoring and ordering
+- [x] Task: Implement Cross-Encoder & Scoring Reranker Service 5b4681f
+  - [x] Write unit tests for `RerankerService` and fallback scoring re-rankers in `tests/test_reranker.py`
+  - [x] Implement reranker classes in `src/rag_foundry/retrieval/reranking.py`
+  - [x] Verify top-k candidate scoring and ordering
 - [ ] Task: Implement Graph Retrieval Provider Interface & Conformance Provider
   - [ ] Write unit tests for `GraphRetrievalProvider` interface and `ConformanceGraphProvider` in `tests/test_graph_retrieval.py`
   - [ ] Implement graph provider and subgraph evidence formatters in `src/rag_foundry/retrieval/graph.py`
