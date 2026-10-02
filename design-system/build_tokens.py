@@ -85,18 +85,9 @@ _HEADER = """/*
  */
 """
 
-_DARK_VARIANT = """@custom-variant dark {
-  &:where([data-theme='dark'], [data-theme='dark'] *) {
-    @slot;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    &:where(:not([data-theme='light'], [data-theme='light'] *)) {
-      @slot;
-    }
-  }
-}
-"""
+# How many dark overrides nested inside light ones the dark: variant
+# resolves (dark, then dark > light > dark, ...). Each level adds a rule.
+_THEME_NESTING_DEPTH = 3
 
 _BASE_LAYER = """@layer base {
   html {
@@ -256,6 +247,40 @@ def _font_stack(families):
     )
 
 
+def _dark_variant():
+    """Builds a dark: variant that follows the nearest data-theme.
+
+    An element is dark when its nearest data-theme (on itself or an
+    ancestor) is dark, or when it has none and the OS prefers dark; this is
+    how light-dark() resolves the colors. CSS cannot select the nearest
+    ancestor, so each rule matches a chain of alternating overrides ending
+    in dark and excludes anything inside a light override below that chain.
+
+    Returns:
+        The @custom-variant block.
+    """
+    dark = "[data-theme='dark']"
+    light = "[data-theme='light']"
+    rules = []
+    chain = dark
+    for _ in range(_THEME_NESTING_DEPTH):
+        rules.append(
+            f"  &:where({chain}, {chain} *)"
+            f":not(:where({chain} {light}, {chain} {light} *)) {{\n"
+            "    @slot;\n"
+            "  }\n"
+        )
+        chain = f"{chain} {light} {dark}"
+    rules.append(
+        "  @media (prefers-color-scheme: dark) {\n"
+        f"    &:where(:not({light}, {light} *)) {{\n"
+        "      @slot;\n"
+        "    }\n"
+        "  }\n"
+    )
+    return "@custom-variant dark {\n" + "\n".join(rules) + "}\n"
+
+
 def render_tokens_css(tokens):
     """Renders tokens.css: every token as a --rf-* custom property.
 
@@ -324,7 +349,7 @@ def render_tailwind_css(tokens):
     lines = [_HEADER.format(title="Assay theme for Tailwind CSS v4."),
              "@import './tokens.css';",
              "",
-             _DARK_VARIANT,
+             _dark_variant(),
              "@theme {",
              "  --color-*: initial;",
              "  --text-*: initial;",

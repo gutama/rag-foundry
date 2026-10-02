@@ -7,7 +7,15 @@
 @import './tokens.css';
 
 @custom-variant dark {
-  &:where([data-theme='dark'], [data-theme='dark'] *) {
+  &:where([data-theme='dark'], [data-theme='dark'] *):not(:where([data-theme='dark'] [data-theme='light'], [data-theme='dark'] [data-theme='light'] *)) {
+    @slot;
+  }
+
+  &:where([data-theme='dark'] [data-theme='light'] [data-theme='dark'], [data-theme='dark'] [data-theme='light'] [data-theme='dark'] *):not(:where([data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'], [data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'] *)) {
+    @slot;
+  }
+
+  &:where([data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'] [data-theme='dark'], [data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'] [data-theme='dark'] *):not(:where([data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'], [data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'] [data-theme='dark'] [data-theme='light'] *)) {
     @slot;
   }
 

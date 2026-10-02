@@ -131,6 +131,16 @@ class TestGeneratedFiles:
         assert used
         assert used <= defined, sorted(used - defined)
 
+    def test_dark_variant_yields_to_nested_light_theme(
+        self, build_tokens, tokens
+    ):
+        """dark: turns off inside a light override nested in a dark one."""
+        css = build_tokens.render_tailwind_css(tokens)
+        dark, light = "[data-theme='dark']", "[data-theme='light']"
+        assert f":not(:where({dark} {light}, {dark} {light} *))" in css
+        deeper = f"{dark} {light} {dark}"
+        assert f":not(:where({deeper} {light}, {deeper} {light} *))" in css
+
     def test_light_and_dark_values_reach_the_css(self, build_tokens, tokens):
         """Theme colors are emitted as light-dark() pairs."""
         css = build_tokens.render_tokens_css(tokens)
