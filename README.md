@@ -111,6 +111,7 @@ rag-foundry/
 │   ├── db/             # SQLAlchemy 2.0 ORM models, async session & engine
 │   ├── metadata/       # MetadataRegistry & JSON Schema validation service
 │   └── taxonomy/       # SKOS TaxonomyService & candidate entity resolution
+├── design-system/      # Assay design tokens and Tailwind CSS v4 theme
 ├── migrations/         # Alembic async database migration scripts
 ├── tests/              # pytest async unit & integration test suites
 ├── docs/

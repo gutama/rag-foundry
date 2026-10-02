@@ -11,5 +11,5 @@
 - **Feedback & Curation:** Enable inline feedback, entity resolution approval, and OKF export workflows for domain experts.
 
 ## Visual & Technical Standards
-- **Interface Aesthetics:** Clean, modern, high-contrast dark/light themes designed for information-dense intelligence displays (graphs, tables, facets).
+- **Interface Aesthetics:** Clean, modern, high-contrast dark/light themes designed for information-dense intelligence displays (graphs, tables, facets). Colors, type and spacing come from the Assay design system in `design-system/` (see its README).
 - **Performance & Responsiveness:** Streaming API responses for LLM answers, fast facet filtering, and non-blocking background job updates.
