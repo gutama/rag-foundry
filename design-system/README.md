@@ -46,10 +46,12 @@ import '@fontsource/source-serif-4/600.css';
 
 Theme colors are defined with `light-dark()`, so they follow the operating
 system by default. To force a theme, set `data-theme="light"` or
-`data-theme="dark"` on `<html>` or on any subtree. The `dark:` variant matches
-both. Rendered document pages stay on paper, so wrap the page canvas of the
-document viewer in `data-theme="light"`. Evidence highlights and bounding
-boxes drawn over it then use their light values.
+`data-theme="dark"` on `<html>` or on any subtree. Overrides can be nested and
+the nearest one wins, for the colors and for the `dark:` variant alike. The
+variant resolves up to three dark overrides stacked inside light ones (dark,
+then light, then dark, and so on). Rendered document pages stay on paper, so
+wrap the page canvas of the document viewer in `data-theme="light"`. Evidence
+highlights and bounding boxes drawn over it then use their light values.
 
 `light-dark()` needs Chrome or Edge 123, Firefox 120 or Safari 17.5 or later.
 
