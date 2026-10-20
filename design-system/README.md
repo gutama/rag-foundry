@@ -20,6 +20,9 @@ In the app's main stylesheet (Vite + Tailwind v4):
 @import '../design-system/tailwind.css';
 ```
 
+The web frontend in `web/` does this in `web/src/styles.css`, and its
+components show the tokens in use. Run it and open `#/design` to see them.
+
 Without Tailwind, import `tokens.css` and use the variables directly:
 `background: var(--rf-surface); color: var(--rf-fg);`.
 
@@ -54,6 +57,10 @@ wrap the page canvas of the document viewer in `data-theme="light"`. Evidence
 highlights and bounding boxes drawn over it then use their light values.
 
 `light-dark()` needs Chrome or Edge 123, Firefox 120 or Safari 17.5 or later.
+Build for those browsers too: with an older CSS target, Vite's minifier lowers
+`light-dark()` into variables resolved once at `:root`, and nested
+`data-theme` overrides stop working. `web/vite.config.ts` sets
+`build.cssTarget` for this.
 
 ## Utilities
 
