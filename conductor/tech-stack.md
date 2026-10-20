@@ -8,6 +8,8 @@
 - **Frontend Application:** TypeScript, React, TailwindCSS, Vite
   - **Design System (Assay):** Tokens in `design-system/tokens.json`, generated into CSS custom properties and a Tailwind CSS v4 theme (`design-system/build_tokens.py`)
   - **Fonts:** IBM Plex Sans, IBM Plex Mono and Source Serif 4, self-hosted via Fontsource for air-gapped deployments
+  - **Location:** `web/`, a Vite app that imports `design-system/tailwind.css`
+  - **Testing & Linting:** Vitest with Testing Library (jsdom), `gts` (Google TypeScript style)
 - **Data & Storage Plane:**
   - PostgreSQL 16+ (Metadata, Governance, Taxonomies/Ontologies)
   - `pgvector` (Vector Similarity Search)

@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+@import '../../design-system/tailwind.css';
+
+@layer base {
+  body {
+    background-color: var(--rf-bg);
+    color: var(--rf-fg);
+    font-family: var(--rf-font-sans);
+  }
+
+  a {
+    color: var(--rf-link);
+    text-decoration-line: underline;
+  }
+
+  a:hover {
+    color: light-dark(var(--rf-cobalt-700), var(--rf-cobalt-200));
+  }
+}

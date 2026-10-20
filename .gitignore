@@ -40,3 +40,8 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+
+# Web frontend
+node_modules/
+web/dist/
+web/coverage/

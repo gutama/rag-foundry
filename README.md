@@ -99,6 +99,7 @@ RAG Foundry is structured as a **modular monolith with asynchronous background w
 | **Models & Gateway** | LiteLLM gateway, Ollama / vLLM, `sentence-transformers`, HF Cross-Encoder |
 | **Graph Provider** | LightRAG (behind provider boundary adapter), nano-GraphRAG (conformance) |
 | **Evaluation & Tracing** | Langfuse, OpenTelemetry, Ragas (RAG metrics engine), DeepEval (CI release gates) |
+| **Frontend** | TypeScript, React 19, Vite, Tailwind CSS v4 on the Assay design system |
 
 ---
 
@@ -112,6 +113,7 @@ rag-foundry/
 │   ├── metadata/       # MetadataRegistry & JSON Schema validation service
 │   └── taxonomy/       # SKOS TaxonomyService & candidate entity resolution
 ├── design-system/      # Assay design tokens and Tailwind CSS v4 theme
+├── web/                # React + TypeScript frontend built on Assay
 ├── migrations/         # Alembic async database migration scripts
 ├── tests/              # pytest async unit & integration test suites
 ├── docs/
@@ -128,6 +130,7 @@ rag-foundry/
 ### Prerequisites
 - **Python 3.11+**
 - **PostgreSQL 16+** (with `pgvector` extension) or SQLite (for local testing)
+- **Node.js 22+** (for the web frontend)
 
 ### Installation
 
@@ -162,6 +165,14 @@ rag-foundry/
 5. **Run Test Suite & Coverage:**
    ```bash
    pytest tests/ --cov=src/rag_foundry --cov-report=term-missing
+   ```
+
+6. **Run the Web Frontend:**
+   ```bash
+   cd web
+   npm ci
+   npm run dev     # http://localhost:5173, design system at #/design
+   npm test        # Vitest component and screen tests
    ```
 
 ---
