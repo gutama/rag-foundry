@@ -24,11 +24,11 @@
   - [x] Write tests: round trip of IRIs, labels, domain/range, inverses and
         constraints; unsupported OWL or SHACL terms raise errors
   - [x] Implement in `ontology/serialization.py`
-- [~] Task: Turtle export
-  - [ ] Write tests: deterministic output, prefixes, comparison against a
+- [x] Task: Turtle export (a5eedf0)
+  - [x] Write tests: deterministic output, prefixes, comparison against a
         golden file
-  - [ ] Implement
-- [ ] Task: Constraint validator
+  - [x] Implement
+- [~] Task: Constraint validator
   - [ ] Write tests: domain/range with subclass inference, cardinality,
         datatype, allowed values; any other constraint kind raises
         `UnsupportedConstraintError`
