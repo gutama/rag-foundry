@@ -158,7 +158,7 @@ class AssertionValidator:
             raise ValueError(
                 "Assertions are validated against approved releases only"
             )
-        record = await self._store.load_record(assertion_id)
+        record = await self._store.load_record(assertion_id, lock=True)
         if record.status not in VALIDATABLE_STATUSES:
             raise AssertionStateError(
                 f"Assertion {assertion_id} is {record.status} and cannot be "

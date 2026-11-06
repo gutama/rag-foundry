@@ -12,8 +12,10 @@ from sqlalchemy import create_engine, inspect, select
 
 from rag_foundry.assertions import lifecycle as lc
 from rag_foundry.assertions import models as am
-from rag_foundry.db.models import AssertionRecord
+from rag_foundry.assertions import validation as av
+from rag_foundry.db.models import AssertionRecord, AssertionValidationRecord
 from rag_foundry.entities import store as st
+from tests.assertion_helpers import RELEASE, create_assertion, seed
 
 EX = "http://example.org/finance#"
 ID = "http://id.example.org/entity/"
@@ -266,16 +268,23 @@ async def test_create_requires_existing_entities(session_factory):
             )
 
 
+async def _validated(session, ids, **kwargs):
+    """Create an assertion with real evidence and validate it."""
+    assertion = await create_assertion(session, ids, **kwargs)
+    report = await av.AssertionValidator(session).validate(
+        assertion.id, RELEASE
+    )
+    assert report.valid, report.findings
+    return assertion
+
+
 @pytest.mark.asyncio
 async def test_transitions_are_append_only_and_audited(session_factory):
     """Every status change is logged with actor, reason and time."""
     async with session_factory() as session:
-        bca, _ = await _entities(session)
+        ids = await seed(session)
         store = lc.AssertionStore(session)
-        assertion = await _create(store, bca)
-        await store.transition(
-            assertion.id, "validated", actor_id="system:validator"
-        )
+        assertion = await _validated(session, ids)
         approved = await store.transition(
             assertion.id, "approved", actor_id="steward:ana",
             reason="Matches the deed of establishment",
@@ -289,7 +298,7 @@ async def test_transitions_are_append_only_and_audited(session_factory):
     assert approved.status == "approved"
     assert [(t.from_status, t.to_status, t.actor_id) for t in log] == [
         (None, "candidate", "extractor:1"),
-        ("candidate", "validated", "system:validator"),
+        ("candidate", "validated", av.VALIDATOR_ACTOR),
         ("validated", "approved", "steward:ana"),
     ]
     assert log[2].reason == "Matches the deed of establishment"
@@ -315,10 +324,9 @@ async def test_invalid_store_transitions_change_nothing(session_factory):
 async def test_superseding_needs_the_dedicated_operation(session_factory):
     """'superseded' is reserved for supersede(), which applies its rules."""
     async with session_factory() as session:
-        bca, _ = await _entities(session)
+        ids = await seed(session)
         store = lc.AssertionStore(session)
-        assertion = await _create(store, bca)
-        await store.transition(assertion.id, "validated", actor_id="v")
+        assertion = await _validated(session, ids)
         await store.transition(assertion.id, "approved", actor_id="s")
         with pytest.raises(lc.AssertionStateError):
             await store.transition(assertion.id, "superseded", actor_id="s")
@@ -357,14 +365,12 @@ async def test_missing_assertion_raises(session_factory):
 async def test_list_assertions_by_entity(session_factory):
     """Assertions can be listed by subject or object entity and status."""
     async with session_factory() as session:
-        bca, ojk = await _entities(session)
+        ids = await seed(session)
+        bca, ojk = ids["bca"], ids["ojk"]
         store = lc.AssertionStore(session)
-        name = await _create(store, bca)
-        link = await _create(
-            store, bca, property_uri=EX + "licensedBy", literal_value=None,
-            object_entity_id=ojk,
-        )
-        await store.transition(link.id, "validated", actor_id="v")
+        name = await create_assertion(session, ids)
+        link = await _validated(session, ids, subject="ojk",
+                                prop="supervises", object="bca")
         about_bca = await store.list_assertions(entity_id=bca)
         about_ojk = await store.list_assertions(entity_id=ojk)
         validated = await store.list_assertions(
@@ -379,6 +385,88 @@ async def test_list_assertions_by_entity(session_factory):
     assert {a.id for a in about_bca} == {name.id, link.id}
     assert [a.id for a in about_ojk] == [link.id]
     assert [a.id for a in validated] == [link.id]
+
+
+# --- Governance in the shared transition operation ------------------------
+
+
+@pytest.mark.asyncio
+async def test_validated_requires_a_passing_report(session_factory):
+    """No report, no 'validated': only validation can certify."""
+    async with session_factory() as session:
+        ids = await seed(session)
+        store = lc.AssertionStore(session)
+        assertion = await create_assertion(session, ids)
+        with pytest.raises(lc.GovernanceError):
+            await store.transition(assertion.id, "validated", actor_id="x")
+        with pytest.raises(lc.GovernanceError):
+            await store.transition(assertion.id, "invalid", actor_id="x")
+        current = await store.get_assertion(assertion.id)
+        log = await store.list_transitions(assertion.id)
+    assert current.status == "candidate"
+    assert len(log) == 1
+
+
+@pytest.mark.asyncio
+async def test_direct_approval_applies_the_governance_rules(session_factory):
+    """transition() refuses what the review queue would refuse."""
+    async with session_factory() as session:
+        ids = await seed(session)
+        store = lc.AssertionStore(session)
+        flagged = await _validated(session, ids)
+        record = await session.get(AssertionRecord, flagged.id)
+        record.requires_review = True
+        record.review_reason = "Entity split"
+        unevidenced = await _validated(session, ids, subject="ojk")
+        (await session.get(AssertionRecord, unevidenced.id)) \
+            .source_chunk_ids = []
+        stale = await _validated(session, ids, subject="budi")
+        session.add(AssertionValidationRecord(
+            assertion_id=stale.id, ontology_release_id=RELEASE.release_id,
+            ontology_version=RELEASE.version, policy_id="p",
+            policy_version="1", valid=False, findings=[], actor_id="v",
+        ))
+        await session.flush()
+        for assertion in (flagged, unevidenced, stale):
+            with pytest.raises(lc.GovernanceError):
+                await store.transition(assertion.id, "approved",
+                                       actor_id="steward:ana")
+            assert (await store.get_assertion(assertion.id)).status == \
+                "validated"
+
+
+@pytest.mark.asyncio
+async def test_stale_state_cannot_overwrite_a_committed_transition(
+    session_factory,
+):
+    """The row is re-read under lock, so a stale 'validated' loses."""
+    async with session_factory() as session:
+        ids = await seed(session)
+        assertion = await _validated(session, ids)
+        await session.commit()
+
+    async with session_factory() as first, session_factory() as second:
+        stale = await lc.AssertionStore(first).load_record(assertion.id)
+        assert stale.status == "validated"
+        await lc.AssertionStore(second).transition(
+            assertion.id, "rejected", actor_id="steward:bo", reason="No"
+        )
+        await second.commit()
+        with pytest.raises(lc.InvalidTransitionError):
+            await lc.AssertionStore(first).apply_transition(
+                stale, "approved", "steward:ana", None
+            )
+        assert stale.status == "rejected"
+
+    async with session_factory() as session:
+        log = await lc.AssertionStore(session).list_transitions(
+            assertion.id
+        )
+    assert [(t.sequence, t.from_status, t.to_status) for t in log] == [
+        (1, None, "candidate"),
+        (2, "candidate", "validated"),
+        (3, "validated", "rejected"),
+    ]
 
 
 # --- Migration ------------------------------------------------------------

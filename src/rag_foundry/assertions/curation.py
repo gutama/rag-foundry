@@ -253,7 +253,7 @@ class CurationService:
         require_actor(actor_id)
         if not reason.strip():
             raise ValueError("Superseding an assertion needs a reason")
-        old = await self._store.load_record(assertion_id)
+        old = await self._store.load_record(assertion_id, lock=True)
         self._require_approved(old)
         if replacement_id is not None:
             if replacement_id == assertion_id:

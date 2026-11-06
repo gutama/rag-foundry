@@ -12,6 +12,17 @@ reason and time to ``assertion_transitions``; entries are never edited or
 deleted. ``superseded`` is reserved for the dedicated supersede operation,
 which enforces the curated-versus-extracted rules of ADR-0013.
 
+Every change goes through ``apply_transition``, which re-reads the row
+under a lock (``SELECT ... FOR UPDATE``) so a stale in-memory status can
+never overwrite a committed one, and enforces the governance rules no
+caller may bypass:
+
+- ``validated`` needs a passing latest validation report pinned to the
+  assertion's ontology release, and ``invalid`` a failing one;
+- ``approved`` additionally needs the assertion not to be flagged for
+  review and every cited evidence chunk to resolve in its workspace
+  (extracted assertions must cite at least one).
+
 Becoming ``validated`` puts the assertion in the steward review queue;
 leaving that state settles its review item with the same actor and reason.
 
@@ -33,6 +44,8 @@ from rag_foundry.assertions.models import (
 from rag_foundry.db.models import (
     AssertionRecord,
     AssertionTransitionRecord,
+    AssertionValidationRecord,
+    Chunk,
     EntityRecord,
 )
 from rag_foundry.entities.store import EntityNotFoundError, as_utc
@@ -67,6 +80,10 @@ class InvalidTransitionError(SemanticAssertionError):
 
 class AssertionStateError(SemanticAssertionError):
     """Raised when an operation does not fit the assertion's state."""
+
+
+class GovernanceError(AssertionStateError):
+    """Raised when a transition would bypass validation or approval rules."""
 
 
 def check_transition(current: str, target: str) -> None:
@@ -385,13 +402,27 @@ class AssertionStore:
             for r in records
         ]
 
-    async def load_record(self, assertion_id: uuid.UUID) -> AssertionRecord:
-        """Load an assertion record.
+    async def load_record(
+        self, assertion_id: uuid.UUID, lock: bool = False
+    ) -> AssertionRecord:
+        """Load an assertion record, optionally re-read under a row lock.
+
+        Args:
+            assertion_id: Assertion id.
+            lock: Re-read the committed row with ``SELECT ... FOR UPDATE``,
+                refreshing any copy already in the session.
 
         Raises:
             AssertionNotFoundError: If the assertion does not exist.
         """
-        record = await self.session.get(AssertionRecord, assertion_id)
+        stmt = select(AssertionRecord).where(
+            AssertionRecord.id == assertion_id
+        )
+        if lock:
+            stmt = stmt.with_for_update().execution_options(
+                populate_existing=True
+            )
+        record = (await self.session.execute(stmt)).scalar_one_or_none()
         if record is None:
             raise AssertionNotFoundError(
                 f"Assertion {assertion_id} not found"
@@ -407,10 +438,16 @@ class AssertionStore:
     ) -> None:
         """Check, apply and log a status change on a loaded record.
 
+        The row is first re-read under lock, so the check sees the committed
+        status and concurrent changes are serialized.
+
         Raises:
             InvalidTransitionError: If the change is not allowed.
+            GovernanceError: If validation or approval rules forbid it.
         """
+        record = await self.load_record(record.id, lock=True)
         check_transition(record.status, to_status)
+        await self._check_governance(record, to_status)
         stmt = select(func.max(AssertionTransitionRecord.sequence)).where(
             AssertionTransitionRecord.assertion_id == record.id
         )
@@ -444,3 +481,72 @@ class AssertionStore:
             await settle(self.session, ASSERTION_KIND, record.id, outcome,
                          actor_id, reason)
         await self.session.flush()
+
+    async def _check_governance(
+        self, record: AssertionRecord, to_status: str
+    ) -> None:
+        """Enforce the validation and approval rules for a transition.
+
+        Raises:
+            GovernanceError: If the transition is not supported by the
+                latest validation, or approval rules forbid it.
+        """
+        if to_status not in ("validated", "invalid", "approved"):
+            return
+        if to_status == "approved" and record.requires_review:
+            raise GovernanceError(
+                f"Assertion {record.id} is flagged: {record.review_reason}. "
+                "Revalidate it once the cause is fixed, or reject it"
+            )
+        stmt = (
+            select(AssertionValidationRecord)
+            .where(AssertionValidationRecord.assertion_id == record.id)
+            .order_by(
+                AssertionValidationRecord.created_at.desc(),
+                AssertionValidationRecord.id.desc(),
+            )
+            .limit(1)
+        )
+        report = (await self.session.execute(stmt)).scalar_one_or_none()
+        if to_status == "invalid":
+            if report is None or report.valid:
+                raise GovernanceError(
+                    f"Assertion {record.id} can only become invalid through "
+                    "a failed validation"
+                )
+            return
+        if (
+            report is None
+            or not report.valid
+            or report.ontology_release_id != record.ontology_release_id
+        ):
+            raise GovernanceError(
+                f"Assertion {record.id} has no passing validation for its "
+                "pinned ontology release"
+            )
+        if to_status == "approved":
+            await self._check_evidence(record)
+
+    async def _check_evidence(self, record: AssertionRecord) -> None:
+        """Check that an assertion's evidence still resolves.
+
+        Raises:
+            GovernanceError: If an extracted assertion cites nothing, or a
+                cited chunk no longer resolves in the workspace.
+        """
+        chunk_ids = [uuid.UUID(c) for c in record.source_chunk_ids]
+        if not chunk_ids and record.origin == "extracted":
+            raise GovernanceError(
+                f"Extracted assertion {record.id} cites no evidence"
+            )
+        stmt = select(Chunk.id).where(
+            Chunk.id.in_(chunk_ids),
+            Chunk.workspace_id == record.workspace_id,
+        )
+        found = set((await self.session.execute(stmt)).scalars().all())
+        missing = [c for c in chunk_ids if c not in found]
+        if missing:
+            raise GovernanceError(
+                f"Evidence of assertion {record.id} no longer resolves: "
+                f"{missing}"
+            )

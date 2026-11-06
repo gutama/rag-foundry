@@ -10,11 +10,12 @@ and its item always agree.
 Approval rules:
 
 - a resolution candidate is approved through ``ResolutionService``;
-- a validated assertion is approved only if its latest validation passed
-  against its pinned release and every cited evidence chunk still resolves
-  in its workspace (extracted assertions must cite at least one);
-- a flagged assertion cannot be approved here: revalidating it clears the
-  flag when the cause is fixed. Rejecting it retires (supersedes) it.
+- a validated assertion is approved through ``AssertionStore``, which
+  enforces the approval rules for every caller: the latest validation
+  passed against the pinned release, the evidence still resolves, and the
+  assertion is not flagged; refusals surface as ``ReviewRefusedError``;
+- a flagged assertion cannot be approved: revalidating it clears the flag
+  when the cause is fixed. Rejecting it retires (supersedes) it.
 
 Approving an approved item again has no further effect.
 """
@@ -28,9 +29,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag_foundry.assertions.curation import CurationService
-from rag_foundry.assertions.lifecycle import AssertionStore, require_actor
-from rag_foundry.assertions.validation import AssertionValidator
-from rag_foundry.db.models import AssertionRecord, Chunk, ReviewItemRecord
+from rag_foundry.assertions.lifecycle import (
+    AssertionStore,
+    GovernanceError,
+    require_actor,
+)
+from rag_foundry.db.models import ReviewItemRecord
 from rag_foundry.entities.resolution import ResolutionService
 from rag_foundry.entities.store import as_utc
 from rag_foundry.stewardship.queue_records import (
@@ -173,13 +177,21 @@ class ReviewQueue:
                 record.target_id, actor_id=actor_id, reason=reason
             )
         else:
-            assertion = await AssertionStore(self.session).load_record(
-                record.target_id
-            )
-            await self._check_approvable(assertion)
-            await AssertionStore(self.session).transition(
-                assertion.id, "approved", actor_id=actor_id, reason=reason
-            )
+            store = AssertionStore(self.session)
+            assertion = await store.load_record(record.target_id)
+            if assertion.status == "approved":
+                raise ReviewRefusedError(
+                    f"Assertion {assertion.id} is flagged: "
+                    f"{assertion.review_reason}. Revalidate it once the "
+                    "cause is fixed, or reject it"
+                )
+            try:
+                await store.transition(
+                    assertion.id, "approved", actor_id=actor_id,
+                    reason=reason,
+                )
+            except GovernanceError as exc:
+                raise ReviewRefusedError(str(exc)) from exc
         return await self.get_item(item_id)
 
     async def reject(
@@ -256,47 +268,4 @@ class ReviewQueue:
         if record.status != "open":
             raise ReviewStateError(
                 f"Review item {record.id} is {record.status}"
-            )
-
-    async def _check_approvable(self, assertion: AssertionRecord) -> None:
-        """Apply the approval rules for an assertion.
-
-        Raises:
-            ReviewRefusedError: If the assertion is flagged, its latest
-                validation failed or does not match its pinned release, or
-                its evidence no longer resolves.
-        """
-        if assertion.requires_review:
-            raise ReviewRefusedError(
-                f"Assertion {assertion.id} is flagged: "
-                f"{assertion.review_reason}. Revalidate it once the cause "
-                "is fixed, or reject it"
-            )
-        report = await AssertionValidator(self.session).latest_report(
-            assertion.id
-        )
-        if (
-            report is None
-            or not report.valid
-            or report.ontology_release_id != assertion.ontology_release_id
-        ):
-            raise ReviewRefusedError(
-                f"Assertion {assertion.id} has no passing validation for "
-                "its pinned ontology release"
-            )
-        chunk_ids = [uuid.UUID(c) for c in assertion.source_chunk_ids]
-        if not chunk_ids and assertion.origin == "extracted":
-            raise ReviewRefusedError(
-                f"Extracted assertion {assertion.id} cites no evidence"
-            )
-        stmt = select(Chunk.id).where(
-            Chunk.id.in_(chunk_ids),
-            Chunk.workspace_id == assertion.workspace_id,
-        )
-        found = set((await self.session.execute(stmt)).scalars().all())
-        missing = [c for c in chunk_ids if c not in found]
-        if missing:
-            raise ReviewRefusedError(
-                f"Evidence of assertion {assertion.id} no longer resolves: "
-                f"{missing}"
             )
