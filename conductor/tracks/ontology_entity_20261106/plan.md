@@ -2,11 +2,11 @@
 
 ## Phase 1: Ontology Domain Models & Versioned Registry
 
-- [ ] Task: Define ontology domain models
-  - [ ] Write tests: validation of `OntologyClass`, `OntologyProperty`,
+- [x] Task: Define ontology domain models (4d1e13f)
+  - [x] Write tests: validation of `OntologyClass`, `OntologyProperty`,
         `PropertyConstraint` and `OntologyRelease` (IRI format, status values,
         a data property must have a datatype range)
-  - [ ] Implement the Pydantic models in `ontology/models.py`
+  - [x] Implement the Pydantic models in `ontology/models.py`
 - [ ] Task: Add the ontology persistence schema
   - [ ] Write tests: ORM round trip of releases, classes and properties on
         aiosqlite
