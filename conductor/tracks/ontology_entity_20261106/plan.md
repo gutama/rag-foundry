@@ -7,10 +7,10 @@
         `PropertyConstraint` and `OntologyRelease` (IRI format, status values,
         a data property must have a datatype range)
   - [x] Implement the Pydantic models in `ontology/models.py`
-- [ ] Task: Add the ontology persistence schema
-  - [ ] Write tests: ORM round trip of releases, classes and properties on
+- [x] Task: Add the ontology persistence schema (508b245)
+  - [x] Write tests: ORM round trip of releases, classes and properties on
         aiosqlite
-  - [ ] Implement the ORM tables and the Alembic migration
+  - [x] Implement the ORM tables and the Alembic migration
 - [ ] Task: Implement the `OntologyRegistry` service
   - [ ] Write tests: create a draft, add terms, publish, approved releases are
         immutable, new draft from an approved release, deprecate a term, look up
