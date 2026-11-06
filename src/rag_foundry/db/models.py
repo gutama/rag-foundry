@@ -577,3 +577,105 @@ class EntityLineageRecord(Base):
     successor: Mapped["EntityRecord"] = relationship(
         "EntityRecord", foreign_keys=[successor_id]
     )
+
+
+class AssertionRecord(Base):
+    """A semantic assertion (ARCHITECTURE.md §8.7, ADR-0013/0014)."""
+
+    __tablename__ = "semantic_assertions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    semantic_profile_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    subject_entity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id"), nullable=False, index=True
+    )
+    property_uri: Mapped[str] = mapped_column(
+        String(512), nullable=False, index=True
+    )
+    object_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("entities.id"), nullable=True, index=True
+    )
+    literal_value: Mapped[Optional[Any]] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )
+    source_chunk_ids: Mapped[List[str]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    origin: Mapped[str] = mapped_column(String(16), nullable=False)
+    extraction_method: Mapped[str] = mapped_column(
+        String(128), nullable=False
+    )
+    extraction_model: Mapped[Optional[str]] = mapped_column(
+        String(256), nullable=True
+    )
+    extraction_prompt_version: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True
+    )
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="candidate", nullable=False, index=True
+    )
+    ontology_release_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        nullable=True
+    )
+    requires_review: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    review_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    superseded_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("semantic_assertions.id"), nullable=True
+    )
+    valid_from: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    valid_to: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AssertionTransitionRecord(Base):
+    """An append-only entry of an assertion's status history (ADR-0014)."""
+
+    __tablename__ = "assertion_transitions"
+    __table_args__ = (
+        UniqueConstraint(
+            "assertion_id", "sequence", name="uq_assertion_transition_seq"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    assertion_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_assertions.id"), nullable=False, index=True
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    from_status: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )
+    to_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Lets the unit of work insert the assertion before its first entry.
+    assertion: Mapped["AssertionRecord"] = relationship("AssertionRecord")
