@@ -61,7 +61,7 @@
   - [x] Implement `entities/lineage.py`
 - [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
 
-## Phase 4: Semantic Assertions & Validation Pipeline
+## Phase 4: Semantic Assertions & Validation Pipeline [checkpoint: 766fbf7]
 
 - [x] Task: Assertion model, schema and lifecycle state machine (4bfaf4d)
   - [x] Write tests: allowed and invalid transitions, append-only transition
@@ -87,7 +87,7 @@
         flagged for re-review; assertions that reference a merged entity are
         re-pointed on revalidation
   - [x] Implement
-- [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
 
 ## Phase 5: Curator Review Queue, Audit & Semantic Metrics
 
