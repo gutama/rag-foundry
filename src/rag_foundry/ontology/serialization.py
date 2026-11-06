@@ -30,6 +30,11 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pydantic import ValidationError
 
+from rag_foundry.ontology.datatypes import (
+    XSD_BOOLEAN,
+    XSD_INTEGER,
+    XSD_STRING,
+)
 from rag_foundry.ontology.models import (
     SUPPORTED_DATATYPES,
     XSD_NAMESPACE,
@@ -76,9 +81,6 @@ SH_TARGET_SUBJECTS_OF = SH_NAMESPACE + "targetSubjectsOf"
 RF_IDENTITY_RULE = RF_NAMESPACE + "identityRule"
 RF_PROVENANCE_REQUIRED = RF_NAMESPACE + "provenanceRequired"
 RF_TEMPORAL = RF_NAMESPACE + "temporal"
-XSD_BOOLEAN = XSD_NAMESPACE + "boolean"
-XSD_INTEGER = XSD_NAMESPACE + "integer"
-XSD_STRING = XSD_NAMESPACE + "string"
 
 # BCP 47 tag for "undetermined", used for labels without a language tag.
 UNDETERMINED_LANGUAGE = "und"

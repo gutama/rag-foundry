@@ -18,19 +18,25 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-XSD_NAMESPACE = "http://www.w3.org/2001/XMLSchema#"
-
-SUPPORTED_DATATYPES = frozenset(
-    XSD_NAMESPACE + name
-    for name in (
-        "string",
-        "integer",
-        "decimal",
-        "boolean",
-        "date",
-        "dateTime",
-    )
+from rag_foundry.ontology.datatypes import (
+    SUPPORTED_DATATYPES,
+    XSD_NAMESPACE,
+    is_valid_lexical,
 )
+
+__all__ = [
+    "SUPPORTED_CONSTRAINT_KINDS",
+    "SUPPORTED_DATATYPES",
+    "XSD_NAMESPACE",
+    "OntologyClass",
+    "OntologyProperty",
+    "OntologyRelease",
+    "PropertyConstraint",
+    "TermStatus",
+    "UnsupportedConstraintError",
+    "UnsupportedFeatureError",
+    "validate_iri",
+]
 
 SUPPORTED_CONSTRAINT_KINDS = ("cardinality", "allowed_values")
 
@@ -346,9 +352,13 @@ class OntologyProperty(BaseModel):
             key=lambda c: SUPPORTED_CONSTRAINT_KINDS.index(c.kind)
         )
         allowed = self.constraint("allowed_values")
-        if self.property_type == "object" and allowed is not None:
-            for value in allowed.allowed_values:
+        for value in allowed.allowed_values if allowed else []:
+            if self.property_type == "object":
                 validate_iri(value)
+            elif not is_valid_lexical(self.datatype or "", value):
+                raise ValueError(
+                    f"Allowed value {value!r} is not a valid {self.datatype}"
+                )
         return self
 
     def constraint(self, kind: str) -> Optional[PropertyConstraint]:

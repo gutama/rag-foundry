@@ -643,3 +643,21 @@ def test_iris_reject_control_characters():
         models.OntologyClass(
             uri=EX + "Ba\x01nk", preferred_labels={"en": "Bank"}
         )
+
+
+@pytest.mark.parametrize(
+    "datatype, values",
+    [
+        ("integer", ["1", "two"]),
+        ("boolean", ["yes"]),
+        ("date", ["2026-02-30"]),
+        ("decimal", ["1e5"]),
+    ],
+)
+def test_data_allowed_values_must_match_the_datatype(datatype, values):
+    """Allowed values outside the datatype's lexical space are refused."""
+    with pytest.raises(ValidationError):
+        _data_prop(
+            "x", ["Organization"], XSD + datatype,
+            constraints=[{"kind": "allowed_values", "allowed_values": values}],
+        )
