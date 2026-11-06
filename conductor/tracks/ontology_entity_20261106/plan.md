@@ -37,7 +37,7 @@
       `docs/semantics/ontology-constraints.md` (db35eca)
 - [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
-## Phase 3: Entity Identity, Resolution, Merge & Split
+## Phase 3: Entity Identity, Resolution, Merge & Split [checkpoint: cec90bd]
 
 - [x] Task: Entity and mention models and schema (e73c222)
   - [x] Write tests: typed identifiers are unique per scheme, aliases are
@@ -59,7 +59,7 @@
         resolve; merging an entity into itself or into an already-merged entity
         is rejected
   - [x] Implement `entities/lineage.py`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
 
 ## Phase 4: Semantic Assertions & Validation Pipeline
 
