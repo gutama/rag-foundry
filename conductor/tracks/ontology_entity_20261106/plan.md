@@ -43,12 +43,12 @@
   - [x] Write tests: typed identifiers are unique per scheme, aliases are
         stored, status values are enforced
   - [x] Implement the models, ORM tables and migration
-- [~] Task: Mention normalization and candidate generation
-  - [ ] Write tests: Unicode, whitespace and case normalization; an identifier
+- [x] Task: Mention normalization and candidate generation (3cc87d3)
+  - [x] Write tests: Unicode, whitespace and case normalization; an identifier
         match outranks a label match; alias matches; similarity ranking;
         ontology class filter
-  - [ ] Implement `entities/resolution.py`
-- [ ] Task: Resolution policy and decisions
+  - [x] Implement `entities/resolution.py`
+- [~] Task: Resolution policy and decisions
   - [ ] Write tests: the default policy never auto-approves; an explicit policy
         auto-approves above its threshold; candidates store the score breakdown
         and policy version; results are deterministic
