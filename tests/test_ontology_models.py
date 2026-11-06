@@ -548,3 +548,27 @@ def test_release_ancestors_of_unknown_class_raises():
     """Asking for ancestors of an undefined class raises KeyError."""
     with pytest.raises(KeyError):
         _sample_release().ancestors(EX + "Missing")
+
+
+def test_release_lineage_fields_default_to_none():
+    """A fresh release has no predecessor and is unpublished."""
+    release = _sample_release()
+    assert release.previous_release_id is None
+    assert release.published_at is None
+
+
+def test_release_descendants_are_transitive():
+    """descendants() returns every subclass, nearest first."""
+    release = _sample_release()
+    assert release.descendants(EX + "Agent") == [
+        EX + "Organization",
+        EX + "Person",
+        EX + "Bank",
+    ]
+    assert release.descendants(EX + "Bank") == []
+
+
+def test_release_descendants_of_unknown_class_raises():
+    """Asking for descendants of an undefined class raises KeyError."""
+    with pytest.raises(KeyError):
+        _sample_release().descendants(EX + "Missing")

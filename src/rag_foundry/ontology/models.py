@@ -121,6 +121,32 @@ def _validate_labels(labels: Dict[str, str]) -> Dict[str, str]:
     return labels
 
 
+def _breadth_first(edges: Dict[str, List[str]], start: str) -> List[str]:
+    """Walk a graph breadth-first from a node, excluding the node itself.
+
+    Args:
+        edges: Node to neighbour list; every neighbour must be a key.
+        start: Node to start from.
+
+    Returns:
+        Reachable nodes in breadth-first order, each listed once.
+
+    Raises:
+        KeyError: If ``start`` is not a node of the graph.
+    """
+    if start not in edges:
+        raise KeyError(start)
+    result: List[str] = []
+    queue = deque(edges[start])
+    while queue:
+        current = queue.popleft()
+        if current in result:
+            continue
+        result.append(current)
+        queue.extend(edges[current])
+    return result
+
+
 class OntologyClass(BaseModel):
     """An ontology class (``owl:Class``) identified by a stable IRI."""
 
@@ -313,6 +339,9 @@ class OntologyRelease(BaseModel):
         default=None, description="Release description"
     )
     status: TermStatus = Field(default="draft", description="Release status")
+    previous_release_id: Optional[uuid.UUID] = Field(
+        default=None, description="Release this draft was derived from"
+    )
     classes: List[OntologyClass] = Field(
         default_factory=list, description="Classes in the release"
     )
@@ -322,6 +351,9 @@ class OntologyRelease(BaseModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Release creation timestamp",
+    )
+    published_at: Optional[datetime] = Field(
+        default=None, description="When the release was approved"
     )
 
     _check_uri = field_validator("ontology_uri")(validate_iri)
@@ -435,18 +467,26 @@ class OntologyRelease(BaseModel):
         Raises:
             KeyError: If the release does not define the class.
         """
+        return _breadth_first(self._parent_map(), uri)
+
+    def descendants(self, uri: str) -> List[str]:
+        """List every subclass of a class, nearest first.
+
+        Args:
+            uri: Class IRI.
+
+        Returns:
+            Descendant IRIs in breadth-first order, each listed once.
+
+        Raises:
+            KeyError: If the release does not define the class.
+        """
         parents = self._parent_map()
-        if uri not in parents:
-            raise KeyError(uri)
-        result: List[str] = []
-        queue = deque(parents[uri])
-        while queue:
-            current = queue.popleft()
-            if current in result:
-                continue
-            result.append(current)
-            queue.extend(parents[current])
-        return result
+        children: Dict[str, List[str]] = {key: [] for key in parents}
+        for child, child_parents in parents.items():
+            for parent in child_parents:
+                children[parent].append(child)
+        return _breadth_first(children, uri)
 
     def is_subclass_of(self, uri: str, ancestor_uri: str) -> bool:
         """Check rdfs:subClassOf, reflexively and transitively.
