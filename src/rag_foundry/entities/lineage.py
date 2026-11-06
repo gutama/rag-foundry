@@ -12,7 +12,9 @@ Corrections to entity identity are governed operations, not upserts:
   nobody claims stay on the original. Mentions resolved to the original are
   reset to ``unresolved``, because no single successor can inherit them,
   and validated or approved assertions naming it are flagged for steward
-  re-review (their status is not changed silently).
+  re-review (their status is not changed silently). Entities merged into
+  the original earlier now redirect to a split, so links to them are
+  treated the same way.
 - **Redirects** follow merges through chains. A chain that ends at a split
   entity raises ``EntitySplitError`` instead of guessing a successor.
 
@@ -357,8 +359,15 @@ class EntityLineageService:
             )
         original.status = "split"
         original.updated_at = now
-        reset = await self._reset_mentions(original.id)
-        flagged = await self._flag_assertions(original.id, event_id, now)
+        # Entities merged into the original (directly or through a chain)
+        # now redirect to a split entity, so their links are affected too.
+        affected = [original.id] + await self._merged_predecessors(
+            original.id
+        )
+        reset = await self._reset_mentions(affected)
+        flagged = await self._flag_assertions(
+            original.id, affected, event_id, now
+        )
         await record_audit(
             self.session, "entity.split", actor_id, "entity", original.id,
             {
@@ -481,13 +490,32 @@ class EntityLineageService:
                 "An identifier can be given to only one successor"
             )
 
-    async def _reset_mentions(
+    async def _merged_predecessors(
         self, entity_id: uuid.UUID
     ) -> List[uuid.UUID]:
-        """Unresolve mentions linked to an entity; return their ids."""
+        """List entities whose merge redirects lead to an entity."""
+        found: List[uuid.UUID] = []
+        frontier = [entity_id]
+        while frontier:
+            stmt = (
+                select(EntityRecord.id)
+                .where(EntityRecord.merged_into_id.in_(frontier))
+                .order_by(EntityRecord.id)
+            )
+            frontier = [
+                i for i in (await self.session.execute(stmt)).scalars()
+                if i not in found and i != entity_id
+            ]
+            found.extend(frontier)
+        return found
+
+    async def _reset_mentions(
+        self, entity_ids: List[uuid.UUID]
+    ) -> List[uuid.UUID]:
+        """Unresolve mentions linked to any of the entities."""
         stmt = (
             select(EntityMentionRecord)
-            .where(EntityMentionRecord.resolved_entity_id == entity_id)
+            .where(EntityMentionRecord.resolved_entity_id.in_(entity_ids))
             .order_by(EntityMentionRecord.id)
         )
         mentions = (await self.session.execute(stmt)).scalars().all()
@@ -497,15 +525,19 @@ class EntityLineageService:
         return [mention.id for mention in mentions]
 
     async def _flag_assertions(
-        self, entity_id: uuid.UUID, event_id: uuid.UUID, when: datetime
+        self,
+        entity_id: uuid.UUID,
+        affected: List[uuid.UUID],
+        event_id: uuid.UUID,
+        when: datetime,
     ) -> List[uuid.UUID]:
-        """Flag trusted assertions naming a split entity for re-review."""
+        """Flag trusted assertions naming affected entities for re-review."""
         stmt = (
             select(AssertionRecord)
             .where(
                 or_(
-                    AssertionRecord.subject_entity_id == entity_id,
-                    AssertionRecord.object_entity_id == entity_id,
+                    AssertionRecord.subject_entity_id.in_(affected),
+                    AssertionRecord.object_entity_id.in_(affected),
                 ),
                 AssertionRecord.status.in_(("validated", "approved")),
             )

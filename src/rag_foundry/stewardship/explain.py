@@ -14,7 +14,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rag_foundry.entities.lineage import EntityLineageService, LineageEvent
+from rag_foundry.entities.lineage import (
+    EntityLineageService,
+    EntitySplitError,
+    LineageEvent,
+)
 from rag_foundry.entities.models import Entity, Mention
 from rag_foundry.entities.resolution import (
     ResolutionCandidate,
@@ -82,7 +86,16 @@ async def explain_entity_link(
     note: Optional[str] = None
     if mention.resolved_entity_id is not None:
         redirects = await _merge_path(lineage, mention.resolved_entity_id)
-        current = await lineage.current_entity(mention.resolved_entity_id)
+        try:
+            current = await lineage.current_entity(mention.resolved_entity_id)
+        except EntitySplitError:
+            end = redirects[-1].successor_id if redirects else (
+                mention.resolved_entity_id
+            )
+            note = (
+                f"The linked entity now redirects to entity {end}, which "
+                "was split; resolve the mention again"
+            )
     elif link is not None:
         linked = await EntityStore(session).get_entity(link.entity_id)
         note = (

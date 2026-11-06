@@ -178,3 +178,22 @@ async def test_failed_revalidation_flags_but_never_demotes_approval(world):
     cleared = await _get(session, approved)
     assert cleared.requires_review is False
     assert cleared.review_reason is None
+
+
+# --- Splits reached through earlier merges ---------------------------------
+
+
+@pytest.mark.asyncio
+async def test_split_reaches_assertions_through_merged_predecessors(world):
+    """An assertion naming A is flagged when A was merged into a split B."""
+    session, ids = world
+    approved = await _approved(session, ids, subject="bca-dup")
+    lineage = lin.EntityLineageService(session)
+    await lineage.merge(ids["bca"], ids["bca-dup"], actor_id=STEWARD,
+                        reason="Duplicate")
+    result = await lineage.split(ids["bca"], _successors(),
+                                 actor_id=STEWARD, reason="Conflated")
+    stored = await _get(session, approved)
+    assert approved.id in result.flagged_assertion_ids
+    assert stored.requires_review is True
+    assert str(ids["bca"]) in stored.review_reason

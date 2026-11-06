@@ -7,6 +7,7 @@ import pytest_asyncio
 
 from rag_foundry.assertions import lifecycle as lc
 from rag_foundry.assertions import validation as av
+from rag_foundry.db.models import EntityMentionRecord
 from rag_foundry.entities import lineage as lin
 from rag_foundry.entities import resolution as res
 from rag_foundry.entities import store as st
@@ -265,3 +266,45 @@ async def test_explain_an_unresolved_mention(world):
     assert explanation.audit_events == []
     with pytest.raises(st.MentionNotFoundError):
         await ex.explain_entity_link(session, uuid.uuid4())
+
+
+@pytest.mark.asyncio
+async def test_split_resets_mentions_linked_through_merges(world):
+    """A mention linked to A is reset when A's survivor is split."""
+    session, ids = world
+    mention = await _mention(session, "bca-dup")
+    await res.ResolutionService(session).resolve(mention.id, policy=AUTO)
+    lineage = lin.EntityLineageService(session)
+    await lineage.merge(ids["bca"], ids["bca-dup"], actor_id=STEWARD,
+                        reason="Duplicate")
+    result = await lineage.split(ids["bca"], _successors(),
+                                 actor_id=STEWARD, reason="Conflated")
+    stored = await st.EntityStore(session).get_mention(mention.id)
+    explanation = await ex.explain_entity_link(session, mention.id)
+    assert mention.id in result.reset_mention_ids
+    assert stored.resolution_status == "unresolved"
+    assert explanation.current_entity is None
+    assert "merged" in explanation.note
+
+
+@pytest.mark.asyncio
+async def test_explain_survives_links_that_end_at_a_split(world):
+    """Even a link a split did not reset is explained, not raised."""
+    session, ids = world
+    mention = await _mention(session, "bca-dup")
+    await res.ResolutionService(session).resolve(mention.id, policy=AUTO)
+    lineage = lin.EntityLineageService(session)
+    await lineage.merge(ids["bca"], ids["bca-dup"], actor_id=STEWARD,
+                        reason="Duplicate")
+    await lineage.split(ids["bca"], _successors(), actor_id=STEWARD,
+                        reason="Conflated")
+    # Simulate a link written before splits reset merged predecessors.
+    record = await session.get(EntityMentionRecord, mention.id)
+    record.resolution_status = "resolved"
+    record.resolved_entity_id = ids["bca-dup"]
+    await session.flush()
+    explanation = await ex.explain_entity_link(session, mention.id)
+    assert explanation.status == "resolved"
+    assert explanation.current_entity is None
+    assert [r.successor_id for r in explanation.redirects] == [ids["bca"]]
+    assert "split" in explanation.note
