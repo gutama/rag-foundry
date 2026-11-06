@@ -89,7 +89,7 @@
   - [x] Implement
 - [x] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
 
-## Phase 5: Curator Review Queue, Audit & Semantic Metrics
+## Phase 5: Curator Review Queue, Audit & Semantic Metrics [checkpoint: a8de405]
 
 - [x] Task: Review queue service (924cc62)
   - [x] Write tests:
@@ -107,4 +107,4 @@
 - [x] Task: Ontology and entity metrics (a8de405)
   - [x] Write tests: compute each of the five metrics on a fixture dataset
   - [x] Implement `stewardship/metrics.py`
-- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)
