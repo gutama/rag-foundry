@@ -100,11 +100,11 @@
     - approval is refused when validation failed or evidence is missing;
     - approving the same item twice has no extra effect.
   - [x] Implement `stewardship/review_queue.py`
-- [~] Task: Audit trail and explainability
-  - [ ] Write tests: an `AuditEvent` is written for each merge, split, decision
+- [x] Task: Audit trail and explainability (0e65fbf)
+  - [x] Write tests: an `AuditEvent` is written for each merge, split, decision
         and transition; `explain_entity_link` returns the full path
-  - [ ] Implement
-- [ ] Task: Ontology and entity metrics
+  - [x] Implement
+- [~] Task: Ontology and entity metrics
   - [ ] Write tests: compute each of the five metrics on a fixture dataset
   - [ ] Implement `stewardship/metrics.py`
 - [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)
