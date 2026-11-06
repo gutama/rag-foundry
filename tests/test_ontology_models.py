@@ -572,3 +572,36 @@ def test_release_descendants_of_unknown_class_raises():
     """Asking for descendants of an undefined class raises KeyError."""
     with pytest.raises(KeyError):
         _sample_release().descendants(EX + "Missing")
+
+
+def test_object_property_allowed_values_must_be_iris():
+    """Allowed values of an object property name entities by IRI."""
+    with pytest.raises(ValidationError):
+        _object_prop(
+            "regulatedBy", ["Organization"], ["Organization"],
+            constraints=[
+                {"kind": "allowed_values", "allowed_values": ["OJK"]}
+            ],
+        )
+    prop = _object_prop(
+        "regulatedBy", ["Organization"], ["Organization"],
+        constraints=[
+            {"kind": "allowed_values", "allowed_values": [EX + "ojk"]}
+        ],
+    )
+    assert prop.constraint("allowed_values").allowed_values == [EX + "ojk"]
+
+
+def test_property_constraints_are_kept_in_canonical_order():
+    """Constraints are ordered cardinality first, whatever the input."""
+    prop = _data_prop(
+        "status", ["Organization"], XSD + "string",
+        constraints=[
+            {"kind": "allowed_values", "allowed_values": ["active"]},
+            {"kind": "cardinality", "max_count": 1},
+        ],
+    )
+    assert [c.kind for c in prop.constraints] == [
+        "cardinality",
+        "allowed_values",
+    ]

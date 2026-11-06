@@ -208,19 +208,33 @@ class OntologyRegistry:
             }
         )
         await self._ensure_new_version(ontology_uri, version)
-        record = OntologyReleaseRecord(
-            id=release.release_id,
-            ontology_uri=release.ontology_uri,
-            version=release.version,
-            title=release.title,
-            description=release.description,
-            status="draft",
-            created_at=release.created_at,
-            classes=[],
-            properties=[],
-        )
-        self.session.add(record)
-        await self.session.flush()
+        await self._insert_draft(release)
+        return release
+
+    async def import_draft(self, release: OntologyRelease) -> OntologyRelease:
+        """Store an externally built release, e.g. an import, as a draft.
+
+        Args:
+            release: A draft release whose terms are drafts or deprecated.
+
+        Returns:
+            The stored release.
+
+        Raises:
+            DuplicateReleaseError: If the version already exists.
+            InvalidReleaseError: If the release or any term is approved.
+        """
+        if release.status != "draft":
+            raise InvalidReleaseError(
+                f"Only drafts can be imported, not {release.status} releases"
+            )
+        for term in [*release.classes, *release.properties]:
+            if term.status == "approved":
+                raise InvalidReleaseError(
+                    f"Imported term {term.uri} cannot already be approved"
+                )
+        await self._ensure_new_version(release.ontology_uri, release.version)
+        await self._insert_draft(release)
         return release
 
     async def get_release(self, release_id: uuid.UUID) -> OntologyRelease:
@@ -478,16 +492,21 @@ class OntologyRegistry:
             published_at=None,
         )
         release = _build_release(fields)
+        await self._insert_draft(release)
+        return release
+
+    async def _insert_draft(self, release: OntologyRelease) -> None:
+        """Insert a validated release and its terms as a draft record."""
         self.session.add(
             OntologyReleaseRecord(
-                id=new_id,
+                id=release.release_id,
                 ontology_uri=release.ontology_uri,
                 version=release.version,
                 title=release.title,
                 description=release.description,
                 status="draft",
-                previous_release_id=source.id,
-                created_at=created_at,
+                previous_release_id=release.previous_release_id,
+                created_at=release.created_at,
                 classes=[_class_to_record(c) for c in release.classes],
                 properties=[
                     _property_to_record(p) for p in release.properties
@@ -495,7 +514,6 @@ class OntologyRegistry:
             )
         )
         await self.session.flush()
-        return release
 
     @staticmethod
     def _select_releases():

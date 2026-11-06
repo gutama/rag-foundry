@@ -41,11 +41,18 @@ TermStatus = Literal["draft", "approved", "deprecated"]
 _IRI_PATTERN = re.compile(r'^[A-Za-z][A-Za-z0-9+.\-]*:[^\s<>"{}|\\^`]+$')
 
 
-class UnsupportedConstraintError(Exception):
-    """Raised for a constraint kind outside the supported subset.
+class UnsupportedFeatureError(Exception):
+    """Raised for an ontology feature outside the supported subset.
 
-    Deliberately not a ``ValueError``: Pydantic lets it propagate unwrapped,
-    so callers can tell "unsupported feature" apart from "invalid data".
+    ADR-0011 requires unsupported semantics to fail explicitly instead of
+    being ignored. Deliberately not a ``ValueError``: Pydantic lets it
+    propagate unwrapped, so callers can tell "unsupported feature" apart
+    from "invalid data".
+    """
+
+
+class UnsupportedConstraintError(UnsupportedFeatureError):
+    """Raised for a constraint kind outside the supported subset.
 
     Attributes:
         kind: The constraint kind that was requested.
@@ -303,6 +310,15 @@ class OntologyProperty(BaseModel):
         kinds = [constraint.kind for constraint in self.constraints]
         if len(set(kinds)) != len(kinds):
             raise ValueError("At most one constraint of each kind is allowed")
+        # RDF does not order constraints, so keep one canonical order to
+        # make exports and round trips deterministic.
+        self.constraints.sort(
+            key=lambda c: SUPPORTED_CONSTRAINT_KINDS.index(c.kind)
+        )
+        allowed = self.constraint("allowed_values")
+        if self.property_type == "object" and allowed is not None:
+            for value in allowed.allowed_values:
+                validate_iri(value)
         return self
 
     def constraint(self, kind: str) -> Optional[PropertyConstraint]:
