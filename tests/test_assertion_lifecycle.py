@@ -401,8 +401,13 @@ def test_assertion_migration_upgrades_and_downgrades(tmp_path):
         finally:
             engine.dispose()
 
+    assertion_tables = {
+        "semantic_assertions",
+        "assertion_transitions",
+        "assertion_validations",
+    }
     command.upgrade(config, "head")
-    assert {"semantic_assertions", "assertion_transitions"} <= tables()
+    assert assertion_tables <= tables()
     command.downgrade(config, "c3d54973f560")
-    assert not {"semantic_assertions", "assertion_transitions"} & tables()
+    assert not assertion_tables & tables()
     assert "entity_lineage" in tables()

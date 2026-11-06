@@ -679,3 +679,36 @@ class AssertionTransitionRecord(Base):
 
     # Lets the unit of work insert the assertion before its first entry.
     assertion: Mapped["AssertionRecord"] = relationship("AssertionRecord")
+
+
+class AssertionValidationRecord(Base):
+    """One validation run of an assertion, pinned to an ontology release.
+
+    Runs are kept as history; the latest decides whether the assertion
+    may be approved (ADR-0014).
+    """
+
+    __tablename__ = "assertion_validations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    assertion_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_assertions.id"), nullable=False, index=True
+    )
+    ontology_release_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    ontology_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    policy_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    findings: Mapped[List[Dict[str, Any]]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    actor_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    assertion: Mapped["AssertionRecord"] = relationship("AssertionRecord")
