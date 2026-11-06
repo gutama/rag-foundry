@@ -441,6 +441,19 @@ def test_import_object_allowed_values_are_iris():
         ),
         pytest.param(
             lambda d: d["@graph"].append(
+                {
+                    "@id": "ex:born",
+                    "@type": "owl:DatatypeProperty",
+                    "rdfs:label": "born",
+                    "rdfs:range": [
+                        {"@id": "xsd:date"}, {"@id": "xsd:string"}
+                    ],
+                }
+            ),
+            id="datatype-range-intersection",
+        ),
+        pytest.param(
+            lambda d: d["@graph"].append(
                 {"@type": "sh:NodeShape", "sh:targetClass": {"@id": "ex:P"}}
             ),
             id="node-shape",

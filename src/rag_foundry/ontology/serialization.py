@@ -750,6 +750,11 @@ class _Reader:
                 f"Datatype property {uri} has no rdfs:range; untyped "
                 "literals are unsupported"
             )
+        if len(ranges) > 1:
+            raise UnsupportedFeatureError(
+                f"rdfs:range of {uri}: several datatypes mean an "
+                "intersection in RDFS and are unsupported"
+            )
         datatype = self._reference(
             self._single(ranges, f"rdfs:range of {uri}"),
             f"rdfs:range of {uri}",
