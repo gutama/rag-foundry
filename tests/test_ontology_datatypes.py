@@ -92,3 +92,36 @@ def test_is_valid_lexical_rejects_unsupported_datatypes():
 def test_canonical_form(datatype, text, expected):
     """Equal values share one canonical lexical form."""
     assert dt.canonical_form(datatype, text) == expected
+
+
+@pytest.mark.parametrize(
+    "datatype, text, valid",
+    [
+        (dt.XSD_DATE, "2026-11-06+14:00", True),
+        (dt.XSD_DATE, "2026-11-06-14:00", True),
+        (dt.XSD_DATE, "2026-11-06+14:59", False),
+        (dt.XSD_DATE, "2026-11-06-14:01", False),
+        (dt.XSD_DATE_TIME, "2026-11-06T10:00:00+13:59", True),
+        (dt.XSD_DATE_TIME, "2026-11-06T10:00:00+14:30", False),
+    ],
+)
+def test_timezone_offsets_stay_within_fourteen_hours(datatype, text, valid):
+    """XSD limits timezone offsets to -14:00..+14:00 inclusive."""
+    assert dt.is_valid_lexical(datatype, text) is valid
+
+
+def test_decimal_canonical_form_is_exact():
+    """Long decimals are never rounded into an allowed value."""
+    first = "1.0000000000000000000000000001"
+    second = "1.0000000000000000000000000002"
+    assert dt.canonical_form(dt.XSD_DECIMAL, first) == first
+    assert dt.canonical_form(dt.XSD_DECIMAL, first) != dt.canonical_form(
+        dt.XSD_DECIMAL, second
+    )
+    assert dt.canonical_form(dt.XSD_DECIMAL, "1" * 40 + ".0") == "1" * 40
+
+
+@pytest.mark.parametrize("text", ["0", "-0", "+0.000", "-.0", "0."])
+def test_decimal_zero_has_one_canonical_form(text):
+    """Every spelling of zero, signed or not, canonicalizes to '0'."""
+    assert dt.canonical_form(dt.XSD_DECIMAL, text) == "0"

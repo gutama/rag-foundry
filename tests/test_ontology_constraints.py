@@ -483,3 +483,27 @@ def test_unsupported_constraint_kind_fails_at_validation():
     )
     with pytest.raises(UnsupportedConstraintError):
         con.ConstraintValidator(release)
+
+
+def test_long_decimals_are_not_rounded_into_allowed_values():
+    """1.000...01 is not the allowed value 1."""
+    release = OntologyRelease(
+        ontology_uri="http://example.org/o",
+        version="1",
+        title="T",
+        classes=[OntologyClass(uri=EX + "A", preferred_labels={"en": "A"})],
+        properties=[
+            OntologyProperty(
+                uri=EX + "rate",
+                preferred_labels={"en": "rate"},
+                property_type="data",
+                datatype=XSD + "decimal",
+                constraints=[{"kind": "allowed_values",
+                              "allowed_values": ["1"]}],
+            )
+        ],
+    )
+    validator = con.ConstraintValidator(release)
+    near_one = _stmt("A", "rate", literal="1.0000000000000000000000000001")
+    assert _rules(validator.check_statement(near_one)) == ["allowed_values"]
+    assert validator.check_statement(_stmt("A", "rate", literal="1.00")) == []

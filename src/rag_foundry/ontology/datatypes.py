@@ -66,11 +66,12 @@ def lexical_form(value: Any) -> str:
 
 
 def _valid_timezone(match: "re.Match[str]") -> bool:
-    """Check the optional ±hh:mm timezone of a date match."""
+    """Check the optional ±hh:mm timezone, limited to ±14:00 by XSD."""
     hours, minutes = match.group("tzh"), match.group("tzm")
     if hours is None:
         return True
-    return int(hours) <= 14 and int(minutes) <= 59
+    offset = int(hours) * 60 + int(minutes)
+    return int(minutes) <= 59 and offset <= 14 * 60
 
 
 def _is_date(text: str) -> bool:
@@ -145,5 +146,23 @@ def canonical_form(datatype: str, text: str) -> str:
     if datatype == XSD_BOOLEAN:
         return _BOOLEANS[text]
     if datatype == XSD_DECIMAL:
-        return format(Decimal(text).normalize(), "f")
+        return _canonical_decimal(text)
     return text
+
+
+def _canonical_decimal(text: str) -> str:
+    """Canonicalize a valid xsd:decimal exactly, without a decimal context.
+
+    ``Decimal.normalize`` would round to the context precision (28 digits by
+    default), making distinct long values compare equal, so the lexical
+    form is rewritten as text instead: no leading or fractional trailing
+    zeros, no "+" sign, and a single unsigned zero.
+    """
+    negative = text.startswith("-")
+    integer, _, fraction = text.lstrip("+-").partition(".")
+    integer = integer.lstrip("0") or "0"
+    fraction = fraction.rstrip("0")
+    digits = integer + ("." + fraction if fraction else "")
+    if digits == "0" or not negative:
+        return digits
+    return "-" + digits
