@@ -48,12 +48,12 @@
         match outranks a label match; alias matches; similarity ranking;
         ontology class filter
   - [x] Implement `entities/resolution.py`
-- [~] Task: Resolution policy and decisions
-  - [ ] Write tests: the default policy never auto-approves; an explicit policy
+- [x] Task: Resolution policy and decisions (41d8793)
+  - [x] Write tests: the default policy never auto-approves; an explicit policy
         auto-approves above its threshold; candidates store the score breakdown
         and policy version; results are deterministic
-  - [ ] Implement
-- [ ] Task: Merge and split with lineage
+  - [x] Implement
+- [~] Task: Merge and split with lineage
   - [ ] Write tests: merge adds a redirect and moves aliases and identifiers
         while keeping history; split creates successors; redirect chains
         resolve; merging an entity into itself or into an already-merged entity
