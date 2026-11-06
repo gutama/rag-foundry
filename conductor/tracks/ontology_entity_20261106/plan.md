@@ -39,11 +39,11 @@
 
 ## Phase 3: Entity Identity, Resolution, Merge & Split
 
-- [ ] Task: Entity and mention models and schema
-  - [ ] Write tests: typed identifiers are unique per scheme, aliases are
+- [x] Task: Entity and mention models and schema (e73c222)
+  - [x] Write tests: typed identifiers are unique per scheme, aliases are
         stored, status values are enforced
-  - [ ] Implement the models, ORM tables and migration
-- [ ] Task: Mention normalization and candidate generation
+  - [x] Implement the models, ORM tables and migration
+- [~] Task: Mention normalization and candidate generation
   - [ ] Write tests: Unicode, whitespace and case normalization; an identifier
         match outranks a label match; alias matches; similarity ranking;
         ontology class filter
