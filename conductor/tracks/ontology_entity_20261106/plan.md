@@ -63,11 +63,11 @@
 
 ## Phase 4: Semantic Assertions & Validation Pipeline
 
-- [ ] Task: Assertion model, schema and lifecycle state machine
-  - [ ] Write tests: allowed and invalid transitions, append-only transition
+- [x] Task: Assertion model, schema and lifecycle state machine (4bfaf4d)
+  - [x] Write tests: allowed and invalid transitions, append-only transition
         log, origin class is required
-  - [ ] Implement `assertions/models.py` and `assertions/lifecycle.py`
-- [ ] Task: Assertion validation pipeline
+  - [x] Implement `assertions/models.py` and `assertions/lifecycle.py`
+- [~] Task: Assertion validation pipeline
   - [ ] Write tests:
     - missing evidence, or evidence from another workspace, makes the assertion
       `invalid`;
