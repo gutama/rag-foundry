@@ -1,6 +1,6 @@
 # Implementation Plan: Ontology Registry, Entity Identity & Semantic Assertion Governance
 
-## Phase 1: Ontology Domain Models & Versioned Registry
+## Phase 1: Ontology Domain Models & Versioned Registry [checkpoint: 20b2692]
 
 - [x] Task: Define ontology domain models (4d1e13f)
   - [x] Write tests: validation of `OntologyClass`, `OntologyProperty`,
@@ -16,7 +16,7 @@
         immutable, new draft from an approved release, deprecate a term, look up
         by IRI, subclass closure
   - [x] Implement `ontology/registry.py`
-- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: Ontology Interchange & Constraint Validation
 
