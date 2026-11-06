@@ -50,6 +50,7 @@ from rag_foundry.entities.store import (
     new_entity_record,
 )
 from rag_foundry.ontology.models import validate_iri, validate_labels
+from rag_foundry.stewardship.audit import record_audit
 from rag_foundry.stewardship.queue_records import ASSERTION_KIND, enqueue
 
 
@@ -245,6 +246,16 @@ class EntityLineageService:
                 created_at=now,
             )
         )
+        await record_audit(
+            self.session, "entity.merged", actor_id, "entity", merged.id,
+            {
+                "event_id": event_id,
+                "survivor_id": survivor.id,
+                "reason": reason,
+                "moved_identifiers": moved,
+                "added_aliases": added,
+            },
+        )
         await self.session.flush()
         return MergeResult(
             event_id=event_id,
@@ -348,6 +359,16 @@ class EntityLineageService:
         original.updated_at = now
         reset = await self._reset_mentions(original.id)
         flagged = await self._flag_assertions(original.id, event_id, now)
+        await record_audit(
+            self.session, "entity.split", actor_id, "entity", original.id,
+            {
+                "event_id": event_id,
+                "reason": reason,
+                "successor_ids": [r.id for r in records],
+                "reset_mention_ids": reset,
+                "flagged_assertion_ids": flagged,
+            },
+        )
         await self.session.flush()
         return SplitResult(
             event_id=event_id,

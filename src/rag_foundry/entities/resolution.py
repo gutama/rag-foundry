@@ -58,6 +58,7 @@ from rag_foundry.entities.store import (
     mention_from_record,
 )
 from rag_foundry.ontology.models import OntologyRelease
+from rag_foundry.stewardship.audit import record_audit
 from rag_foundry.stewardship.queue_records import (
     CANDIDATE_KIND,
     enqueue,
@@ -531,6 +532,9 @@ class ResolutionService:
             record.resolution_status = "candidate" if kept else "unresolved"
         await self.session.flush()
         for candidate in records:
+            if candidate.decision == "auto_approved":
+                await self._audit_decision(candidate, candidate.decided_by,
+                                           None)
             if candidate.decision == "pending":
                 await enqueue(
                     self.session, CANDIDATE_KIND, candidate.id,
@@ -579,6 +583,7 @@ class ResolutionService:
             )
         now = datetime.now(timezone.utc)
         self._decide(candidate, "approved", actor_id, reason, now)
+        await self._audit_decision(candidate, actor_id, reason)
         await settle(self.session, CANDIDATE_KIND, candidate.id,
                      "approved", actor_id, reason)
         for other in await self._pending_records(candidate.mention_id):
@@ -622,6 +627,7 @@ class ResolutionService:
             candidate, "rejected", actor_id, reason,
             datetime.now(timezone.utc),
         )
+        await self._audit_decision(candidate, actor_id, reason)
         await settle(self.session, CANDIDATE_KIND, candidate.id,
                      "rejected", actor_id, reason)
         await self.session.flush()
@@ -684,6 +690,27 @@ class ResolutionService:
             m for m in ranked if m.score >= policy.auto_approve_threshold
         ]
         return qualifying[0] if len(qualifying) == 1 else None
+
+    async def _audit_decision(
+        self,
+        record: ResolutionCandidateRecord,
+        actor_id: str,
+        reason: Optional[str],
+    ) -> None:
+        """Record a candidate decision in the audit trail."""
+        await record_audit(
+            self.session, "resolution.decision", actor_id,
+            "resolution_candidate", record.id,
+            {
+                "mention_id": record.mention_id,
+                "entity_id": record.entity_id,
+                "decision": record.decision,
+                "reason": reason,
+                "score": record.score,
+                "method": record.method,
+                "policy": f"{record.policy_id}@{record.policy_version}",
+            },
+        )
 
     @staticmethod
     def _decide(

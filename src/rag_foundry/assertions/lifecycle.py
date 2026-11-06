@@ -36,6 +36,7 @@ from rag_foundry.db.models import (
     EntityRecord,
 )
 from rag_foundry.entities.store import EntityNotFoundError, as_utc
+from rag_foundry.stewardship.audit import record_audit
 from rag_foundry.stewardship.queue_records import (
     ASSERTION_KIND,
     enqueue,
@@ -98,6 +99,28 @@ def require_actor(actor_id: str) -> str:
 def _optional_utc(value: Optional[datetime]) -> Optional[datetime]:
     """Attach UTC to a naive timestamp, keeping None."""
     return None if value is None else as_utc(value)
+
+
+async def _audit_transition(
+    session: AsyncSession,
+    assertion_id: uuid.UUID,
+    sequence: int,
+    from_status: Optional[str],
+    to_status: str,
+    actor_id: str,
+    reason: Optional[str],
+) -> None:
+    """Record an assertion status change in the audit trail."""
+    await record_audit(
+        session, "assertion.transition", actor_id, "assertion",
+        assertion_id,
+        {
+            "sequence": sequence,
+            "from_status": from_status,
+            "to_status": to_status,
+            "reason": reason,
+        },
+    )
 
 
 def assertion_from_record(record: AssertionRecord) -> SemanticAssertion:
@@ -246,6 +269,8 @@ class AssertionStore:
                 created_at=assertion.created_at,
             )
         )
+        await _audit_transition(self.session, record.id, 1, None,
+                                assertion.status, actor_id, reason)
         await self.session.flush()
         return assertion
 
@@ -391,10 +416,13 @@ class AssertionStore:
         )
         latest = (await self.session.execute(stmt)).scalar_one_or_none()
         now = datetime.now(timezone.utc)
+        sequence = (latest or 0) + 1
+        await _audit_transition(self.session, record.id, sequence,
+                                record.status, to_status, actor_id, reason)
         self.session.add(
             AssertionTransitionRecord(
                 assertion=record,
-                sequence=(latest or 0) + 1,
+                sequence=sequence,
                 from_status=record.status,
                 to_status=to_status,
                 actor_id=actor_id,
