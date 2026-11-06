@@ -10,7 +10,9 @@ Corrections to entity identity are governed operations, not upserts:
 - **Split** retires a conflated entity and creates explicit successors. Each
   successor claims the original's identifiers it should carry; identifiers
   nobody claims stay on the original. Mentions resolved to the original are
-  reset to ``unresolved``, because no single successor can inherit them.
+  reset to ``unresolved``, because no single successor can inherit them,
+  and validated or approved assertions naming it are flagged for steward
+  re-review (their status is not changed silently).
 - **Redirects** follow merges through chains. A chain that ends at a split
   entity raises ``EntitySplitError`` instead of guessing a successor.
 
@@ -28,6 +30,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag_foundry.db.models import (
+    AssertionRecord,
     EntityIdentifierRecord,
     EntityLineageRecord,
     EntityMentionRecord,
@@ -122,6 +125,9 @@ class SplitResult(BaseModel):
     successors: List[Entity] = Field(description="New entities, in order")
     reset_mention_ids: List[uuid.UUID] = Field(
         description="Mentions reset to unresolved"
+    )
+    flagged_assertion_ids: List[uuid.UUID] = Field(
+        description="Assertions flagged for re-review"
     )
 
 
@@ -261,8 +267,9 @@ class EntityLineageService:
             reason: Why the entity was conflated.
 
         Returns:
-            The retired original, the successors, the reset mentions and
-            the lineage event id.
+            The retired original, the successors, the mentions reset to
+            unresolved, the assertions flagged for re-review and the
+            lineage event id.
 
         Raises:
             ValueError: If the actor or reason is blank.
@@ -339,12 +346,14 @@ class EntityLineageService:
         original.status = "split"
         original.updated_at = now
         reset = await self._reset_mentions(original.id)
+        flagged = await self._flag_assertions(original.id, event_id, now)
         await self.session.flush()
         return SplitResult(
             event_id=event_id,
             original=entity_from_record(original),
             successors=[entity_from_record(r) for r in records],
             reset_mention_ids=reset,
+            flagged_assertion_ids=flagged,
         )
 
     async def current_entity(self, entity_id: uuid.UUID) -> Entity:
@@ -464,3 +473,28 @@ class EntityLineageService:
             mention.resolution_status = "unresolved"
             mention.resolved_entity_id = None
         return [mention.id for mention in mentions]
+
+    async def _flag_assertions(
+        self, entity_id: uuid.UUID, event_id: uuid.UUID, when: datetime
+    ) -> List[uuid.UUID]:
+        """Flag trusted assertions naming a split entity for re-review."""
+        stmt = (
+            select(AssertionRecord)
+            .where(
+                or_(
+                    AssertionRecord.subject_entity_id == entity_id,
+                    AssertionRecord.object_entity_id == entity_id,
+                ),
+                AssertionRecord.status.in_(("validated", "approved")),
+            )
+            .order_by(AssertionRecord.created_at, AssertionRecord.id)
+        )
+        records = (await self.session.execute(stmt)).scalars().all()
+        for record in records:
+            record.requires_review = True
+            record.review_reason = (
+                f"Entity {entity_id} was split (event {event_id}); restate "
+                "the assertion against one of its successors"
+            )
+            record.updated_at = when
+        return [record.id for record in records]

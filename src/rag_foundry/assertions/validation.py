@@ -16,8 +16,14 @@ Validation checks, in order:
 
 Each run stores a report pinned to the release and policy versions. A
 candidate becomes ``validated`` or ``invalid``; a validated assertion that
-fails re-validation becomes ``invalid``. Only approved releases are
-accepted, so constraints always come from a published version.
+fails re-validation becomes ``invalid``. An approved assertion keeps its
+status: a failed revalidation flags it for steward review (ADR-0014 never
+withdraws approval silently) and a passing one clears the flag. Only
+approved releases are accepted, so constraints always come from a
+published version.
+
+After a merge, ``revalidate_for_entity`` re-points every live assertion
+naming the merged entity to its survivor.
 """
 
 import uuid
@@ -25,7 +31,7 @@ from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag_foundry.assertions.lifecycle import (
@@ -46,6 +52,7 @@ from rag_foundry.ontology.models import OntologyRelease
 
 VALIDATOR_ACTOR = "system:validator"
 COUNTED_STATUSES = ("validated", "approved")
+VALIDATABLE_STATUSES = ("candidate", "validated", "approved")
 
 
 class AssertionPolicy(BaseModel):
@@ -138,8 +145,8 @@ class AssertionValidator:
         Raises:
             ValueError: If the release is not approved or the actor blank.
             AssertionNotFoundError: If the assertion does not exist.
-            AssertionStateError: If the assertion is not a candidate or
-                validated.
+            AssertionStateError: If the assertion is invalid, rejected or
+                superseded.
         """
         require_actor(actor_id)
         if release.status != "approved":
@@ -147,7 +154,7 @@ class AssertionValidator:
                 "Assertions are validated against approved releases only"
             )
         record = await self._store.load_record(assertion_id)
-        if record.status not in ("candidate", "validated"):
+        if record.status not in VALIDATABLE_STATUSES:
             raise AssertionStateError(
                 f"Assertion {assertion_id} is {record.status} and cannot be "
                 "validated"
@@ -156,16 +163,58 @@ class AssertionValidator:
         report = await self._save_report(
             record, release, policy, findings, actor_id
         )
+        summary = self._summary(report)
         if record.status == "candidate":
             target = "validated" if report.valid else "invalid"
             await self._store.apply_transition(
-                record, target, actor_id, self._summary(report)
+                record, target, actor_id, summary
             )
-        elif not report.valid:
+        elif record.status == "validated" and not report.valid:
             await self._store.apply_transition(
-                record, "invalid", actor_id, self._summary(report)
+                record, "invalid", actor_id, summary
             )
+        elif record.status == "approved":
+            record.requires_review = not report.valid
+            record.review_reason = None if report.valid else summary
+            await self.session.flush()
         return report
+
+    async def revalidate_for_entity(
+        self,
+        entity_id: uuid.UUID,
+        release: OntologyRelease,
+        policy: AssertionPolicy = DEFAULT_ASSERTION_POLICY,
+        actor_id: str = VALIDATOR_ACTOR,
+    ) -> List[AssertionValidationReport]:
+        """Revalidate every live assertion naming an entity.
+
+        Run after a merge to re-point assertions to the survivor.
+
+        Args:
+            entity_id: Entity named as subject or object.
+            release: Approved ontology release.
+            policy: Validation policy.
+            actor_id: Who runs the validation.
+
+        Returns:
+            One report per revalidated assertion, oldest assertion first.
+        """
+        stmt = (
+            select(AssertionRecord.id)
+            .where(
+                or_(
+                    AssertionRecord.subject_entity_id == entity_id,
+                    AssertionRecord.object_entity_id == entity_id,
+                ),
+                AssertionRecord.status.in_(VALIDATABLE_STATUSES),
+            )
+            .order_by(AssertionRecord.created_at, AssertionRecord.id)
+        )
+        assertion_ids = (await self.session.execute(stmt)).scalars().all()
+        return [
+            await self.validate(assertion_id, release, policy, actor_id)
+            for assertion_id in assertion_ids
+        ]
 
     async def check(
         self,
