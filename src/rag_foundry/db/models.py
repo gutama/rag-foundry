@@ -334,3 +334,135 @@ class OntologyPropertyRecord(Base):
     release: Mapped["OntologyReleaseRecord"] = relationship(
         "OntologyReleaseRecord", back_populates="properties"
     )
+
+
+class EntityRecord(Base):
+    """An authoritative entity (ADR-0012).
+
+    The id never changes. A merged entity keeps its row and points at its
+    survivor through ``merged_into_id``, so redirects and history survive.
+    """
+
+    __tablename__ = "entities"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "canonical_uri", name="uq_entity_canonical_uri"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    semantic_profile_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    canonical_uri: Mapped[str] = mapped_column(String(512), nullable=False)
+    ontology_class_uri: Mapped[str] = mapped_column(
+        String(512), nullable=False, index=True
+    )
+    preferred_labels: Mapped[Dict[str, str]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    aliases: Mapped[Dict[str, List[str]]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="active", nullable=False
+    )
+    merged_into_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("entities.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    identifiers: Mapped[List["EntityIdentifierRecord"]] = relationship(
+        "EntityIdentifierRecord",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+    )
+
+
+class EntityIdentifierRecord(Base):
+    """A typed external identifier of an entity.
+
+    One value per scheme per entity, and one entity per (scheme, value) in
+    a workspace, so external identifiers can never point at two entities.
+    """
+
+    __tablename__ = "entity_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "scheme", "value",
+            name="uq_entity_identifier_value",
+        ),
+        UniqueConstraint(
+            "entity_id", "scheme", name="uq_entity_identifier_scheme"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    scheme: Mapped[str] = mapped_column(String(64), nullable=False)
+    value: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    entity: Mapped["EntityRecord"] = relationship(
+        "EntityRecord", back_populates="identifiers"
+    )
+
+
+class EntityMentionRecord(Base):
+    """A surface mention of an entity in a chunk."""
+
+    __tablename__ = "entity_mentions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    semantic_profile_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    chunk_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
+    start_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    surface_text: Mapped[str] = mapped_column(Text, nullable=False)
+    ontology_class_uri: Mapped[Optional[str]] = mapped_column(
+        String(512), nullable=True
+    )
+    identifiers: Mapped[Dict[str, str]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    resolution_status: Mapped[str] = mapped_column(
+        String(32), default="unresolved", nullable=False
+    )
+    resolved_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("entities.id"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

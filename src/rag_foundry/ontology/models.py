@@ -36,6 +36,9 @@ __all__ = [
     "UnsupportedConstraintError",
     "UnsupportedFeatureError",
     "validate_iri",
+    "validate_labels",
+    "validate_language_map",
+    "validate_language_tag",
 ]
 
 SUPPORTED_CONSTRAINT_KINDS = ("cardinality", "allowed_values")
@@ -120,7 +123,24 @@ def _validate_iri_list(values: List[str]) -> List[str]:
     return values
 
 
-def _validate_language_map(texts: Dict[str, str]) -> Dict[str, str]:
+def validate_language_tag(language: str) -> str:
+    """Check that a value is a well-formed BCP 47 language tag.
+
+    Args:
+        language: Candidate tag, such as ``en`` or ``zh-Hant-TW``.
+
+    Returns:
+        The unchanged tag.
+
+    Raises:
+        ValueError: If the tag is malformed.
+    """
+    if not _LANGUAGE_TAG_PATTERN.match(language):
+        raise ValueError(f"{language!r} is not a BCP 47 language tag")
+    return language
+
+
+def validate_language_map(texts: Dict[str, str]) -> Dict[str, str]:
     """Check language tags and texts of a language-to-text map.
 
     Args:
@@ -133,14 +153,13 @@ def _validate_language_map(texts: Dict[str, str]) -> Dict[str, str]:
         ValueError: If a tag is not BCP 47 or a text is blank.
     """
     for language, text in texts.items():
-        if not _LANGUAGE_TAG_PATTERN.match(language):
-            raise ValueError(f"{language!r} is not a BCP 47 language tag")
+        validate_language_tag(language)
         if not text.strip():
             raise ValueError(f"The {language!r} text cannot be blank")
     return texts
 
 
-def _validate_labels(labels: Dict[str, str]) -> Dict[str, str]:
+def validate_labels(labels: Dict[str, str]) -> Dict[str, str]:
     """Check that a label map is non-empty and well-formed.
 
     Args:
@@ -155,7 +174,7 @@ def _validate_labels(labels: Dict[str, str]) -> Dict[str, str]:
     """
     if not labels:
         raise ValueError("At least one preferred label is required")
-    return _validate_language_map(labels)
+    return validate_language_map(labels)
 
 
 def _breadth_first(edges: Dict[str, List[str]], start: str) -> List[str]:
@@ -206,9 +225,9 @@ class OntologyClass(BaseModel):
 
     _check_uri = field_validator("uri")(validate_iri)
     _check_parents = field_validator("parent_class_uris")(_validate_iri_list)
-    _check_labels = field_validator("preferred_labels")(_validate_labels)
+    _check_labels = field_validator("preferred_labels")(validate_labels)
     _check_description = field_validator("description")(
-        _validate_language_map
+        validate_language_map
     )
 
     @model_validator(mode="after")
@@ -309,9 +328,9 @@ class OntologyProperty(BaseModel):
     status: TermStatus = Field(default="draft", description="Term status")
 
     _check_uri = field_validator("uri")(validate_iri)
-    _check_labels = field_validator("preferred_labels")(_validate_labels)
+    _check_labels = field_validator("preferred_labels")(validate_labels)
     _check_description = field_validator("description")(
-        _validate_language_map
+        validate_language_map
     )
     _check_domain = field_validator("domain_class_uris")(_validate_iri_list)
     _check_range = field_validator("range_class_uris")(_validate_iri_list)
