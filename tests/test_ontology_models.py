@@ -605,3 +605,41 @@ def test_property_constraints_are_kept_in_canonical_order():
         "cardinality",
         "allowed_values",
     ]
+
+
+@pytest.mark.parametrize(
+    "tag", ["en_US", "en US", "-en", "e1", "toolonglanguage"]
+)
+def test_labels_reject_malformed_language_tags(tag):
+    """Language tags must be well-formed BCP 47 tags."""
+    with pytest.raises(ValidationError):
+        models.OntologyClass(
+            uri=EX + "Bank", preferred_labels={tag: "Bank"}
+        )
+
+
+@pytest.mark.parametrize("tag", ["en", "id", "und", "en-US", "zh-Hant-TW"])
+def test_labels_accept_well_formed_language_tags(tag):
+    """Common BCP 47 tags are accepted."""
+    cls = models.OntologyClass(
+        uri=EX + "Bank", preferred_labels={tag: "Bank"}
+    )
+    assert cls.preferred_labels == {tag: "Bank"}
+
+
+def test_descriptions_reject_malformed_language_tags():
+    """Description language tags are validated too."""
+    with pytest.raises(ValidationError):
+        models.OntologyClass(
+            uri=EX + "Bank",
+            preferred_labels={"en": "Bank"},
+            description={"en_GB": "A bank"},
+        )
+
+
+def test_iris_reject_control_characters():
+    """Control characters are not allowed anywhere in an IRI."""
+    with pytest.raises(ValidationError):
+        models.OntologyClass(
+            uri=EX + "Ba\x01nk", preferred_labels={"en": "Bank"}
+        )

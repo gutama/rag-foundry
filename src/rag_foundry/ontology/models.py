@@ -37,8 +37,14 @@ SUPPORTED_CONSTRAINT_KINDS = ("cardinality", "allowed_values")
 TermStatus = Literal["draft", "approved", "deprecated"]
 
 # An absolute IRI: a scheme, a colon, then characters that are neither
-# whitespace nor among those RFC 3987 excludes from IRIs.
-_IRI_PATTERN = re.compile(r'^[A-Za-z][A-Za-z0-9+.\-]*:[^\s<>"{}|\\^`]+$')
+# control characters, spaces nor among those RFC 3987 excludes from IRIs.
+# This is also exactly what Turtle accepts inside <...>.
+_IRI_PATTERN = re.compile(
+    r'^[A-Za-z][A-Za-z0-9+.\-]*:[^\x00-\x20\x7f<>"{}|\\^`]+$'
+)
+
+# A well-formed BCP 47 language tag, as required by RDF and Turtle.
+_LANGUAGE_TAG_PATTERN = re.compile(r"^[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*$")
 
 
 class UnsupportedFeatureError(Exception):
@@ -108,8 +114,28 @@ def _validate_iri_list(values: List[str]) -> List[str]:
     return values
 
 
+def _validate_language_map(texts: Dict[str, str]) -> Dict[str, str]:
+    """Check language tags and texts of a language-to-text map.
+
+    Args:
+        texts: Language tag to text mapping; may be empty.
+
+    Returns:
+        The unchanged mapping.
+
+    Raises:
+        ValueError: If a tag is not BCP 47 or a text is blank.
+    """
+    for language, text in texts.items():
+        if not _LANGUAGE_TAG_PATTERN.match(language):
+            raise ValueError(f"{language!r} is not a BCP 47 language tag")
+        if not text.strip():
+            raise ValueError(f"The {language!r} text cannot be blank")
+    return texts
+
+
 def _validate_labels(labels: Dict[str, str]) -> Dict[str, str]:
-    """Check that a label map is non-empty with non-blank entries.
+    """Check that a label map is non-empty and well-formed.
 
     Args:
         labels: Language tag to label mapping.
@@ -118,14 +144,12 @@ def _validate_labels(labels: Dict[str, str]) -> Dict[str, str]:
         The unchanged mapping.
 
     Raises:
-        ValueError: If the map is empty or has a blank tag or label.
+        ValueError: If the map is empty, a tag is not BCP 47 or a label is
+            blank.
     """
     if not labels:
         raise ValueError("At least one preferred label is required")
-    for language, label in labels.items():
-        if not language.strip() or not label.strip():
-            raise ValueError("Label language tags and texts cannot be blank")
-    return labels
+    return _validate_language_map(labels)
 
 
 def _breadth_first(edges: Dict[str, List[str]], start: str) -> List[str]:
@@ -177,6 +201,9 @@ class OntologyClass(BaseModel):
     _check_uri = field_validator("uri")(validate_iri)
     _check_parents = field_validator("parent_class_uris")(_validate_iri_list)
     _check_labels = field_validator("preferred_labels")(_validate_labels)
+    _check_description = field_validator("description")(
+        _validate_language_map
+    )
 
     @model_validator(mode="after")
     def _check_not_own_parent(self) -> "OntologyClass":
@@ -277,6 +304,9 @@ class OntologyProperty(BaseModel):
 
     _check_uri = field_validator("uri")(validate_iri)
     _check_labels = field_validator("preferred_labels")(_validate_labels)
+    _check_description = field_validator("description")(
+        _validate_language_map
+    )
     _check_domain = field_validator("domain_class_uris")(_validate_iri_list)
     _check_range = field_validator("range_class_uris")(_validate_iri_list)
 

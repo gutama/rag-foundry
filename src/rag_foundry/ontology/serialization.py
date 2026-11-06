@@ -1,4 +1,4 @@
-"""JSON-LD interchange for ontology releases (ADR-0011).
+"""JSON-LD and Turtle interchange for ontology releases (ADR-0011).
 
 The provider-neutral model maps onto standard vocabulary:
 
@@ -20,8 +20,12 @@ this mapping raises ``UnsupportedFeatureError`` (``UnsupportedConstraintError``
 for SHACL constraint components) instead of being skipped, and structural
 problems raise ``OntologyImportError``. Imported terms are drafts unless
 marked ``owl:deprecated``; approval only happens through the registry.
+
+Turtle is export-only. It is rendered from the JSON-LD export, so both
+formats always state the same triples.
 """
 
+import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pydantic import ValidationError
@@ -770,3 +774,124 @@ class _Reader:
             else:
                 members.append(str(value))
         return members
+
+
+# --- Turtle export --------------------------------------------------------
+
+# A conservative subset of Turtle's PN_LOCAL that never needs escaping;
+# other local names are written as full <IRI>s.
+_LOCAL_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_\-]*$")
+_TURTLE_ESCAPES = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+_STATEMENT_SEPARATOR = " ;\n    "
+_INLINE_SEPARATOR = " ; "
+
+
+def export_turtle(release: OntologyRelease) -> str:
+    """Export a release as Turtle.
+
+    The ontology namespace (the ontology IRI, plus ``#`` unless it already
+    ends in ``#`` or ``/``) becomes the empty prefix. Output is
+    deterministic: equal releases give identical text.
+
+    Args:
+        release: Release to export.
+
+    Returns:
+        UTF-8 Turtle text ending in a newline.
+    """
+    namespace = _default_namespace(release.ontology_uri)
+    writer = _TurtleWriter(namespace)
+    lines = [
+        f"@prefix {prefix}: <{iri}> ."
+        for prefix, iri in sorted(PREFIXES.items())
+    ]
+    lines.append(f"@prefix : <{namespace}> .")
+    for node in export_jsonld(release)["@graph"]:
+        lines.extend(["", writer.statement(node)])
+    return "\n".join(lines) + "\n"
+
+
+def _default_namespace(ontology_uri: str) -> str:
+    """Derive the namespace used for the empty Turtle prefix."""
+    if ontology_uri.endswith(("#", "/")):
+        return ontology_uri
+    return ontology_uri + "#"
+
+
+def _turtle_string(text: str) -> str:
+    """Quote a string as a Turtle literal, escaping as needed."""
+    escaped = []
+    for char in text:
+        if char in _TURTLE_ESCAPES:
+            escaped.append(_TURTLE_ESCAPES[char])
+        elif ord(char) < 0x20 or ord(char) == 0x7F:
+            escaped.append(f"\\u{ord(char):04X}")
+        else:
+            escaped.append(char)
+    return '"' + "".join(escaped) + '"'
+
+
+class _TurtleWriter:
+    """Renders exported JSON-LD nodes as Turtle statements."""
+
+    def __init__(self, namespace: str) -> None:
+        self._namespaces = [(namespace, "")] + [
+            (iri, prefix) for prefix, iri in PREFIXES.items()
+        ]
+
+    def statement(self, node: Dict[str, Any]) -> str:
+        """Render a top-level node, using ``[]`` for anonymous subjects."""
+        subject = self.iri(node["@id"]) if "@id" in node else "[]"
+        return f"{subject} {self._predicates(node, _STATEMENT_SEPARATOR)} ."
+
+    def iri(self, iri: str) -> str:
+        """Write an IRI as a prefixed name when that is safe."""
+        for namespace, prefix in self._namespaces:
+            if iri.startswith(namespace):
+                local_name = iri[len(namespace):]
+                if _LOCAL_NAME_PATTERN.match(local_name):
+                    return f"{prefix}:{local_name}"
+        return f"<{iri}>"
+
+    def _predicates(self, node: Dict[str, Any], separator: str) -> str:
+        """Render a node's predicate-object list."""
+        parts = []
+        for key, value in node.items():
+            if key == "@id":
+                continue
+            if key == "@type":
+                parts.append(f"a {value}")
+            else:
+                parts.append(f"{key} {self._objects(value)}")
+        return separator.join(parts)
+
+    def _objects(self, value: Any) -> str:
+        """Render one value or a comma-separated list of values."""
+        values = value if isinstance(value, list) else [value]
+        return ", ".join(self._object(item) for item in values)
+
+    def _object(self, value: Any) -> str:
+        """Render a literal, IRI reference, RDF list or blank node."""
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, str):
+            return _turtle_string(value)
+        if "@list" in value:
+            items = " ".join(self._object(item) for item in value["@list"])
+            return f"( {items} )"
+        if "@value" in value:
+            text = _turtle_string(value["@value"])
+            if "@language" in value:
+                return f"{text}@{value['@language']}"
+            return f"{text}^^{value['@type']}"
+        if set(value) == {"@id"}:
+            return self.iri(value["@id"])
+        return f"[ {self._predicates(value, _INLINE_SEPARATOR)} ]"
