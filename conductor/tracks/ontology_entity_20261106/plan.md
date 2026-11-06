@@ -67,8 +67,8 @@
   - [x] Write tests: allowed and invalid transitions, append-only transition
         log, origin class is required
   - [x] Implement `assertions/models.py` and `assertions/lifecycle.py`
-- [~] Task: Assertion validation pipeline
-  - [ ] Write tests:
+- [x] Task: Assertion validation pipeline (576cd61)
+  - [x] Write tests:
     - missing evidence, or evidence from another workspace, makes the assertion
       `invalid`;
     - a domain/range violation makes it `invalid`;
@@ -77,8 +77,8 @@
     - a split entity makes the assertion `invalid`, with the reason recorded;
     - confidence below the policy minimum is caught;
     - the stored report pins the ontology release used.
-  - [ ] Implement `assertions/validation.py`
-- [ ] Task: Protect curated assertions from extracted ones
+  - [x] Implement `assertions/validation.py`
+- [~] Task: Protect curated assertions from extracted ones
   - [ ] Write tests: an extracted assertion cannot supersede a curated one;
         re-extracting a triple adds evidence without changing its status
   - [ ] Implement
