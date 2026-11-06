@@ -331,3 +331,17 @@ async def test_supersede_preconditions(world):
     with pytest.raises(ValueError):
         await service.supersede(approved.id, None, actor_id=STEWARD,
                                 reason=" ")
+
+
+@pytest.mark.asyncio
+async def test_naive_validity_bounds_match_their_stored_form(world):
+    """A naive bound is read as UTC, so re-extraction still matches it."""
+    session, ids = world
+    naive = datetime(2020, 1, 1)
+    first = await _extract(session, ids, valid_from=naive)
+    again = await _extract(session, ids, valid_from=naive)
+    aware = await _extract(session, ids, valid_from=naive.replace(
+        tzinfo=timezone.utc))
+    assert first.assertion.valid_from == naive.replace(tzinfo=timezone.utc)
+    assert again.created is False and aware.created is False
+    assert again.assertion.id == first.assertion.id == aware.assertion.id

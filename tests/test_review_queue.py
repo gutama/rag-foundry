@@ -451,3 +451,22 @@ def test_review_item_migration_upgrades_and_downgrades(tmp_path):
     command.downgrade(config, "a7c19e4b2d10")
     assert "review_items" not in tables()
     assert "assertion_validations" in tables()
+
+
+@pytest.mark.asyncio
+async def test_blank_reject_reason_changes_nothing(world):
+    """A refused rejection leaves both the item and the assertion as is."""
+    session, ids = world
+    assertion = await _validated(session, ids, confidence=0.6)
+    queue = rq.ReviewQueue(session)
+    await queue.approve((await _items(session))[0].id, actor_id=STEWARD)
+    strict = av.AssertionPolicy(policy_id="strict", min_confidence=0.8)
+    await av.AssertionValidator(session).validate(
+        assertion.id, RELEASE, policy=strict
+    )
+    (item,) = await _items(session)
+    with pytest.raises(ValueError):
+        await queue.reject(item.id, actor_id=STEWARD, reason="  ")
+    assert (await queue.get_item(item.id)).status == "open"
+    stored = await lc.AssertionStore(session).get_assertion(assertion.id)
+    assert stored.status == "approved"

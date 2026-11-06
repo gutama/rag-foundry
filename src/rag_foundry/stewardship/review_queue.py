@@ -202,11 +202,14 @@ class ReviewQueue:
             The decided item.
 
         Raises:
-            ValueError: If the actor is blank.
+            ValueError: If the actor is blank, or the reason is given but
+                blank.
             ReviewItemNotFoundError: If the item does not exist.
             ReviewStateError: If the item is not open.
         """
         require_actor(actor_id)
+        if reason is not None and not reason.strip():
+            raise ValueError("A rejection reason cannot be blank")
         record = await self._record(item_id)
         self._require_open(record)
         if record.kind == CANDIDATE_KIND:

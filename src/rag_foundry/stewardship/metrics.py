@@ -25,7 +25,7 @@ import uuid
 from typing import Dict, List, Optional, Tuple, get_args
 
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag_foundry.db.models import (
@@ -208,13 +208,28 @@ async def _latest_reports(
     """Return each assertion's most recent validation report."""
     if not assertion_ids:
         return {}
+    ranked = (
+        select(
+            AssertionValidationRecord.id,
+            func.row_number()
+            .over(
+                partition_by=AssertionValidationRecord.assertion_id,
+                order_by=(
+                    AssertionValidationRecord.created_at.desc(),
+                    AssertionValidationRecord.id.desc(),
+                ),
+            )
+            .label("position"),
+        )
+        .where(AssertionValidationRecord.assertion_id.in_(assertion_ids))
+        .subquery()
+    )
     reports = (
         await session.execute(
-            select(AssertionValidationRecord)
-            .where(AssertionValidationRecord.assertion_id.in_(assertion_ids))
-            .order_by(
-                AssertionValidationRecord.created_at,
-                AssertionValidationRecord.id,
+            select(AssertionValidationRecord).join(
+                ranked,
+                (ranked.c.id == AssertionValidationRecord.id)
+                & (ranked.c.position == 1),
             )
         )
     ).scalars().all()

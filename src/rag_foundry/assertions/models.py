@@ -24,6 +24,21 @@ from pydantic import (
 
 from rag_foundry.ontology.models import validate_iri
 
+
+def utc_or_none(value: Optional[datetime]) -> Optional[datetime]:
+    """Read a naive timestamp as UTC; keep aware ones and None as they are.
+
+    Args:
+        value: Timestamp or None.
+
+    Returns:
+        A timezone-aware timestamp, or None.
+    """
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=timezone.utc)
+
+
 AssertionStatus = Literal[
     "candidate", "validated", "invalid", "approved", "rejected", "superseded"
 ]
@@ -86,6 +101,7 @@ class SemanticAssertion(BaseModel):
     )
 
     _check_property = field_validator("property_uri")(validate_iri)
+    _check_bounds = field_validator("valid_from", "valid_to")(utc_or_none)
 
     @field_validator("extraction_method")
     @classmethod

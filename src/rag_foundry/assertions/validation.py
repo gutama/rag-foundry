@@ -290,8 +290,17 @@ class AssertionValidator:
         self, assertion_id: uuid.UUID
     ) -> Optional[AssertionValidationReport]:
         """Return an assertion's most recent report, if any."""
-        reports = await self.list_reports(assertion_id)
-        return reports[-1] if reports else None
+        stmt = (
+            select(AssertionValidationRecord)
+            .where(AssertionValidationRecord.assertion_id == assertion_id)
+            .order_by(
+                AssertionValidationRecord.created_at.desc(),
+                AssertionValidationRecord.id.desc(),
+            )
+            .limit(1)
+        )
+        record = (await self.session.execute(stmt)).scalar_one_or_none()
+        return None if record is None else _report_from_record(record)
 
     # --- Checks -----------------------------------------------------------
 

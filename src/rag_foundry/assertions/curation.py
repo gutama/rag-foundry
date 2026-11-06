@@ -9,7 +9,8 @@ apart:
   validated or approved, of either origin), the new evidence chunks are
   appended and nothing else changes: not the status, the origin or the
   confidence. Facts match on workspace, subject, property, value (type-
-  strict: ``1``, ``True`` and ``"1"`` differ) and validity interval.
+  strict: ``1``, ``True`` and ``"1"`` differ) and validity interval (naive
+  bounds are read as UTC, as they are stored).
 - **Extracted never supersedes curated.** ``supersede`` retires an approved
   assertion, optionally naming an approved replacement about the same
   subject and property; an extracted replacement for a curated assertion
@@ -34,7 +35,11 @@ from rag_foundry.assertions.lifecycle import (
     assertion_from_record,
     require_actor,
 )
-from rag_foundry.assertions.models import LiteralValue, SemanticAssertion
+from rag_foundry.assertions.models import (
+    LiteralValue,
+    SemanticAssertion,
+    utc_or_none,
+)
 from rag_foundry.db.models import AssertionRecord, Chunk
 
 LIVE_STATUSES = ("candidate", "validated", "approved")
@@ -311,8 +316,8 @@ class CurationService:
         wanted = (
             object_entity_id,
             _value_key(literal_value),
-            valid_from,
-            valid_to,
+            utc_or_none(valid_from),
+            utc_or_none(valid_to),
         )
         for record in records:
             current = assertion_from_record(record)
