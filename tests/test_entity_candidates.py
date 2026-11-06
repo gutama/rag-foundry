@@ -268,6 +268,17 @@ def test_only_active_entities_in_the_workspace(banks):
     assert _uris(candidates) == ["bca"]
 
 
+def test_rank_returns_every_candidate():
+    """rank() is generate() without truncation."""
+    entities = [
+        _entity(name, {"en": "Acme"}) for name in ("c", "a", "d", "b")
+    ]
+    generator = res.CandidateGenerator(max_candidates=2)
+    assert _uris(generator.rank(_mention("Acme"), entities)) == [
+        "a", "b", "c", "d"
+    ]
+
+
 def test_max_candidates_and_tie_order():
     """Ties break on canonical IRI; the list is truncated."""
     entities = [

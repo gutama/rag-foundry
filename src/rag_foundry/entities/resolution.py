@@ -6,7 +6,9 @@ Resolution follows ARCHITECTURE.md §8.6:
     constraints -> deterministic identifiers -> similarity and rule
     scoring -> confidence threshold -> automatic match or steward review
 
-This module covers the steps up to scoring. Signals, strongest first:
+``CandidateGenerator`` covers the steps up to scoring; ``ResolutionService``
+stores candidates and applies a ``ResolutionPolicy``. Signals, strongest
+first:
 
 ==================  =====================================================
 Signal              Score
@@ -25,16 +27,36 @@ of an incompatible ontology class, or hold a *different* value for an
 identifier scheme the mention carries, since authoritative identifiers
 prove they are different entities. Generation is deterministic: ties are
 broken by canonical IRI.
+
+The default policy never links a mention automatically (ADR-0012: automated
+resolution may auto-approve only under an explicitly governed policy). An
+enabled policy auto-approves only when exactly one candidate reaches its
+threshold, judged before the candidate list is truncated, so ties always go
+to a steward.
 """
 
 import unicodedata
 import uuid
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Dict, List, Literal, Optional, Sequence, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from rag_foundry.db.models import (
+    EntityMentionRecord,
+    EntityRecord,
+    ResolutionCandidateRecord,
+)
 from rag_foundry.entities.models import Entity, Mention
+from rag_foundry.entities.store import (
+    EntityStore,
+    MentionNotFoundError,
+    as_utc,
+    mention_from_record,
+)
 from rag_foundry.ontology.models import OntologyRelease
 
 NORMALIZER_VERSION = "1"
@@ -139,15 +161,28 @@ class CandidateGenerator:
     def generate(
         self, mention: Mention, entities: Sequence[Entity]
     ) -> List[CandidateMatch]:
-        """Score eligible entities against a mention.
+        """Score eligible entities and keep the best ``max_candidates``.
 
         Args:
             mention: The mention to resolve.
             entities: Entities to consider; ineligible ones are skipped.
 
         Returns:
-            Candidates sorted by score, then canonical IRI, truncated to
-            ``max_candidates``.
+            Candidates sorted by score, then canonical IRI, truncated.
+        """
+        return self.rank(mention, entities)[: self.max_candidates]
+
+    def rank(
+        self, mention: Mention, entities: Sequence[Entity]
+    ) -> List[CandidateMatch]:
+        """Score every eligible entity against a mention.
+
+        Args:
+            mention: The mention to resolve.
+            entities: Entities to consider; ineligible ones are skipped.
+
+        Returns:
+            All candidates sorted by score, then canonical IRI.
         """
         text = normalize_text(mention.surface_text)
         matches = []
@@ -157,7 +192,7 @@ class CandidateGenerator:
                 if match is not None:
                     matches.append(match)
         matches.sort(key=lambda m: (-m.score, m.canonical_uri))
-        return matches[: self.max_candidates]
+        return matches
 
     def _eligible(self, mention: Mention, entity: Entity) -> bool:
         """Check workspace, status, class and identifier compatibility."""
@@ -253,3 +288,463 @@ def _exact(text: str, names: List[str]) -> Optional[str]:
     if not text:
         return None
     return next((n for n in names if normalize_text(n) == text), None)
+
+
+# --- Policies and stored decisions ----------------------------------------
+
+CandidateDecision = Literal[
+    "pending", "auto_approved", "approved", "rejected", "superseded"
+]
+
+
+class ResolutionPolicy(BaseModel):
+    """A versioned, immutable policy for scoring and auto-approval."""
+
+    model_config = ConfigDict(frozen=True)
+
+    policy_id: str = Field(default="default", description="Policy name")
+    version: str = Field(default="1", description="Policy version")
+    auto_approve: bool = Field(
+        default=False, description="Link single matches automatically"
+    )
+    auto_approve_threshold: float = Field(
+        default=1.0, ge=0.0, le=1.0, description="Lowest auto-link score"
+    )
+    min_similarity: float = Field(
+        default=0.8, ge=0.0, le=1.0, description="Lowest similarity ratio"
+    )
+    max_candidates: int = Field(
+        default=5, ge=1, description="Candidates stored per run"
+    )
+
+    @field_validator("policy_id", "version")
+    @classmethod
+    def _check_not_blank(cls, value: str) -> str:
+        """Reject blank names and versions."""
+        if not value.strip():
+            raise ValueError("Value cannot be blank")
+        return value
+
+    @property
+    def key(self) -> str:
+        """Identify the policy and version, e.g. ``default@1``."""
+        return f"{self.policy_id}@{self.version}"
+
+
+DEFAULT_POLICY = ResolutionPolicy()
+
+
+class ResolutionCandidate(BaseModel):
+    """A stored candidate with the context needed to explain it."""
+
+    id: uuid.UUID = Field(description="Candidate id")
+    mention_id: uuid.UUID = Field(description="Mention being resolved")
+    entity_id: uuid.UUID = Field(description="Candidate entity")
+    workspace_id: uuid.UUID = Field(description="Workspace")
+    run_number: int = Field(description="Resolution run, from 1")
+    rank: int = Field(description="Rank within the run, from 1")
+    score: float = Field(description="Candidate score")
+    method: MatchMethod = Field(description="Strongest signal")
+    score_breakdown: Dict[str, float] = Field(description="All signals")
+    matched_text: Optional[str] = Field(description="Text matched")
+    policy_id: str = Field(description="Policy used")
+    policy_version: str = Field(description="Policy version used")
+    normalizer_version: str = Field(description="Normalizer version used")
+    ontology_release_id: Optional[uuid.UUID] = Field(
+        description="Ontology release used for class checks"
+    )
+    decision: CandidateDecision = Field(description="Decision so far")
+    decided_by: Optional[str] = Field(description="Actor or policy")
+    decided_at: Optional[datetime] = Field(description="Decision time")
+    decision_reason: Optional[str] = Field(description="Stated reason")
+    created_at: datetime = Field(description="Creation time")
+
+
+class ResolutionOutcome(BaseModel):
+    """The result of one resolution run."""
+
+    mention: Mention = Field(description="The mention after the run")
+    candidates: List[ResolutionCandidate] = Field(
+        description="Candidates stored by this run, by rank"
+    )
+    auto_approved: bool = Field(description="True if the policy linked it")
+
+
+class ResolutionError(Exception):
+    """Base class for resolution errors."""
+
+
+class CandidateNotFoundError(ResolutionError):
+    """Raised when a candidate id is unknown."""
+
+
+class ResolutionStateError(ResolutionError):
+    """Raised when an operation does not fit the current state."""
+
+
+def _candidate_from_record(
+    record: ResolutionCandidateRecord,
+) -> ResolutionCandidate:
+    """Convert a candidate record to a model."""
+    return ResolutionCandidate(
+        id=record.id,
+        mention_id=record.mention_id,
+        entity_id=record.entity_id,
+        workspace_id=record.workspace_id,
+        run_number=record.run_number,
+        rank=record.rank,
+        score=record.score,
+        method=record.method,
+        score_breakdown=record.score_breakdown,
+        matched_text=record.matched_text,
+        policy_id=record.policy_id,
+        policy_version=record.policy_version,
+        normalizer_version=record.normalizer_version,
+        ontology_release_id=record.ontology_release_id,
+        decision=record.decision,
+        decided_by=record.decided_by,
+        decided_at=(
+            None if record.decided_at is None else as_utc(record.decided_at)
+        ),
+        decision_reason=record.decision_reason,
+        created_at=as_utc(record.created_at),
+    )
+
+
+def _require_actor(actor_id: str) -> str:
+    """Reject blank actor ids.
+
+    Raises:
+        ValueError: If the actor id is blank.
+    """
+    if not actor_id.strip():
+        raise ValueError("Decisions must name the actor who made them")
+    return actor_id
+
+
+class ResolutionService:
+    """Resolves mentions into stored candidates and records decisions.
+
+    Methods flush but never commit; the caller owns the transaction.
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        release: Optional[OntologyRelease] = None,
+    ) -> None:
+        """Initialize the service.
+
+        Args:
+            session: SQLAlchemy AsyncSession.
+            release: Pinned ontology release for class compatibility.
+        """
+        self.session = session
+        self.release = release
+
+    async def resolve(
+        self,
+        mention_id: uuid.UUID,
+        policy: ResolutionPolicy = DEFAULT_POLICY,
+    ) -> ResolutionOutcome:
+        """Generate, store and decide candidates for a mention.
+
+        Pending candidates of earlier runs are superseded. The mention
+        becomes ``resolved`` if the policy auto-approves, ``candidate`` if
+        candidates await review, and ``unresolved`` otherwise.
+
+        Args:
+            mention_id: Mention to resolve.
+            policy: Scoring and auto-approval policy.
+
+        Returns:
+            The run's outcome.
+
+        Raises:
+            MentionNotFoundError: If the mention does not exist.
+            ResolutionStateError: If the mention is already resolved.
+        """
+        record = await self._mention_record(mention_id)
+        if record.resolution_status == "resolved":
+            raise ResolutionStateError(
+                f"Mention {mention_id} is already resolved"
+            )
+        mention = mention_from_record(record)
+        now = datetime.now(timezone.utc)
+        await self._supersede_pending(mention_id, now)
+        run_number = await self._next_run_number(mention_id)
+
+        entities = await EntityStore(self.session).list_entities(
+            mention.workspace_id
+        )
+        generator = CandidateGenerator(
+            release=self.release,
+            min_similarity=policy.min_similarity,
+            max_candidates=policy.max_candidates,
+        )
+        ranked = generator.rank(mention, entities)
+        winner = self._auto_winner(ranked, policy)
+        kept = ranked[: policy.max_candidates]
+
+        records = []
+        for rank, match in enumerate(kept, start=1):
+            decision, decided_by, decided_at = "pending", None, None
+            if winner is not None:
+                decision = "auto_approved" if match is winner else "superseded"
+                decided_by, decided_at = f"policy:{policy.key}", now
+            records.append(
+                ResolutionCandidateRecord(
+                    mention_id=mention_id,
+                    entity_id=match.entity_id,
+                    workspace_id=mention.workspace_id,
+                    run_number=run_number,
+                    rank=rank,
+                    score=match.score,
+                    method=match.method,
+                    score_breakdown=dict(match.score_breakdown),
+                    matched_text=match.matched_text,
+                    policy_id=policy.policy_id,
+                    policy_version=policy.version,
+                    normalizer_version=NORMALIZER_VERSION,
+                    ontology_release_id=(
+                        None if self.release is None
+                        else self.release.release_id
+                    ),
+                    decision=decision,
+                    decided_by=decided_by,
+                    decided_at=decided_at,
+                    created_at=now,
+                )
+            )
+        self.session.add_all(records)
+
+        if winner is not None:
+            record.resolution_status = "resolved"
+            record.resolved_entity_id = winner.entity_id
+        else:
+            record.resolution_status = "candidate" if kept else "unresolved"
+        await self.session.flush()
+        return ResolutionOutcome(
+            mention=mention_from_record(record),
+            candidates=[_candidate_from_record(r) for r in records],
+            auto_approved=winner is not None,
+        )
+
+    async def approve_candidate(
+        self,
+        candidate_id: uuid.UUID,
+        actor_id: str,
+        reason: Optional[str] = None,
+    ) -> ResolutionCandidate:
+        """Approve a pending candidate and link its mention.
+
+        The run's other pending candidates are superseded.
+
+        Args:
+            candidate_id: Candidate to approve.
+            actor_id: Steward making the decision.
+            reason: Why the candidate is right.
+
+        Returns:
+            The approved candidate.
+
+        Raises:
+            ValueError: If the actor id is blank.
+            CandidateNotFoundError: If the candidate does not exist.
+            ResolutionStateError: If the candidate is not pending, or its
+                entity is no longer active.
+        """
+        _require_actor(actor_id)
+        candidate = await self._pending_record(candidate_id)
+        entity = await self.session.get(EntityRecord, candidate.entity_id)
+        if entity is None or entity.status != "active":
+            raise ResolutionStateError(
+                f"Entity {candidate.entity_id} is no longer active; "
+                "resolve the mention again"
+            )
+        now = datetime.now(timezone.utc)
+        self._decide(candidate, "approved", actor_id, reason, now)
+        for other in await self._pending_records(candidate.mention_id):
+            if other.id != candidate.id:
+                self._decide(other, "superseded", actor_id, None, now)
+        mention = await self._mention_record(candidate.mention_id)
+        mention.resolution_status = "resolved"
+        mention.resolved_entity_id = candidate.entity_id
+        await self.session.flush()
+        return _candidate_from_record(candidate)
+
+    async def reject_candidate(
+        self,
+        candidate_id: uuid.UUID,
+        actor_id: str,
+        reason: Optional[str] = None,
+    ) -> ResolutionCandidate:
+        """Reject a pending candidate.
+
+        When no pending candidate remains, the mention becomes unresolved.
+
+        Args:
+            candidate_id: Candidate to reject.
+            actor_id: Steward making the decision.
+            reason: Why the candidate is wrong.
+
+        Returns:
+            The rejected candidate.
+
+        Raises:
+            ValueError: If the actor id is blank.
+            CandidateNotFoundError: If the candidate does not exist.
+            ResolutionStateError: If the candidate is not pending.
+        """
+        _require_actor(actor_id)
+        candidate = await self._pending_record(candidate_id)
+        self._decide(
+            candidate, "rejected", actor_id, reason,
+            datetime.now(timezone.utc),
+        )
+        await self.session.flush()
+        if not await self._pending_records(candidate.mention_id):
+            mention = await self._mention_record(candidate.mention_id)
+            mention.resolution_status = "unresolved"
+            await self.session.flush()
+        return _candidate_from_record(candidate)
+
+    async def get_candidate(
+        self, candidate_id: uuid.UUID
+    ) -> ResolutionCandidate:
+        """Load a candidate.
+
+        Raises:
+            CandidateNotFoundError: If the candidate does not exist.
+        """
+        return _candidate_from_record(
+            await self._candidate_record(candidate_id)
+        )
+
+    async def list_candidates(
+        self, mention_id: uuid.UUID, include_history: bool = False
+    ) -> List[ResolutionCandidate]:
+        """List a mention's candidates, ordered by run and rank.
+
+        Args:
+            mention_id: Mention id.
+            include_history: Include candidates of earlier runs.
+
+        Returns:
+            Candidates of the latest run, or of every run.
+        """
+        stmt = (
+            select(ResolutionCandidateRecord)
+            .where(ResolutionCandidateRecord.mention_id == mention_id)
+            .order_by(
+                ResolutionCandidateRecord.run_number,
+                ResolutionCandidateRecord.rank,
+            )
+        )
+        if not include_history:
+            latest = await self._next_run_number(mention_id) - 1
+            stmt = stmt.where(
+                ResolutionCandidateRecord.run_number == latest
+            )
+        records = (await self.session.execute(stmt)).scalars().all()
+        return [_candidate_from_record(r) for r in records]
+
+    # --- Helpers ----------------------------------------------------------
+
+    @staticmethod
+    def _auto_winner(
+        ranked: List[CandidateMatch], policy: ResolutionPolicy
+    ) -> Optional[CandidateMatch]:
+        """Pick the single candidate at the threshold, if exactly one."""
+        if not policy.auto_approve:
+            return None
+        qualifying = [
+            m for m in ranked if m.score >= policy.auto_approve_threshold
+        ]
+        return qualifying[0] if len(qualifying) == 1 else None
+
+    @staticmethod
+    def _decide(
+        record: ResolutionCandidateRecord,
+        decision: str,
+        actor_id: str,
+        reason: Optional[str],
+        when: datetime,
+    ) -> None:
+        """Record a decision on a candidate."""
+        record.decision = decision
+        record.decided_by = actor_id
+        record.decision_reason = reason
+        record.decided_at = when
+
+    async def _mention_record(
+        self, mention_id: uuid.UUID
+    ) -> EntityMentionRecord:
+        """Load a mention record.
+
+        Raises:
+            MentionNotFoundError: If the mention does not exist.
+        """
+        record = await self.session.get(EntityMentionRecord, mention_id)
+        if record is None:
+            raise MentionNotFoundError(f"Mention {mention_id} not found")
+        return record
+
+    async def _candidate_record(
+        self, candidate_id: uuid.UUID
+    ) -> ResolutionCandidateRecord:
+        """Load a candidate record.
+
+        Raises:
+            CandidateNotFoundError: If the candidate does not exist.
+        """
+        record = await self.session.get(
+            ResolutionCandidateRecord, candidate_id
+        )
+        if record is None:
+            raise CandidateNotFoundError(
+                f"Candidate {candidate_id} not found"
+            )
+        return record
+
+    async def _pending_record(
+        self, candidate_id: uuid.UUID
+    ) -> ResolutionCandidateRecord:
+        """Load a candidate record that must still be pending.
+
+        Raises:
+            CandidateNotFoundError: If the candidate does not exist.
+            ResolutionStateError: If it is already decided.
+        """
+        record = await self._candidate_record(candidate_id)
+        if record.decision != "pending":
+            raise ResolutionStateError(
+                f"Candidate {candidate_id} is already {record.decision}"
+            )
+        return record
+
+    async def _pending_records(
+        self, mention_id: uuid.UUID
+    ) -> List[ResolutionCandidateRecord]:
+        """List a mention's pending candidate records."""
+        stmt = select(ResolutionCandidateRecord).where(
+            ResolutionCandidateRecord.mention_id == mention_id,
+            ResolutionCandidateRecord.decision == "pending",
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def _supersede_pending(
+        self, mention_id: uuid.UUID, when: datetime
+    ) -> None:
+        """Supersede pending candidates before a new run."""
+        for record in await self._pending_records(mention_id):
+            self._decide(record, "superseded", "system:re-resolution",
+                         None, when)
+
+    async def _next_run_number(self, mention_id: uuid.UUID) -> int:
+        """Return the number of the next resolution run for a mention."""
+        stmt = select(
+            func.max(ResolutionCandidateRecord.run_number)
+        ).where(ResolutionCandidateRecord.mention_id == mention_id)
+        latest = (await self.session.execute(stmt)).scalar_one_or_none()
+        return (latest or 0) + 1

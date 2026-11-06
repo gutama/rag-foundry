@@ -21,7 +21,12 @@ OTHER_WS = uuid.UUID("00000000-0000-4000-8000-0000000000cc")
 PROFILE = uuid.UUID("00000000-0000-4000-8000-0000000000bb")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ONTOLOGY_REVISION = "c1949d0ff61b"
-ENTITY_TABLES = {"entities", "entity_identifiers", "entity_mentions"}
+ENTITY_TABLES = {
+    "entities",
+    "entity_identifiers",
+    "entity_mentions",
+    "resolution_candidates",
+}
 
 
 @pytest_asyncio.fixture

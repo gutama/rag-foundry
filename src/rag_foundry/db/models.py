@@ -8,6 +8,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -460,6 +461,71 @@ class EntityMentionRecord(Base):
     )
     resolved_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("entities.id"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class ResolutionCandidateRecord(Base):
+    """A scored candidate entity for a mention, with its decision trail.
+
+    Every resolution run stores its candidates under a new ``run_number``;
+    earlier pending candidates are superseded, never deleted, so each link
+    can be explained later (ADR-0012).
+    """
+
+    __tablename__ = "resolution_candidates"
+    __table_args__ = (
+        UniqueConstraint(
+            "mention_id", "run_number", "rank",
+            name="uq_resolution_candidate_rank",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    mention_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entity_mentions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id"), nullable=False, index=True
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    run_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    method: Mapped[str] = mapped_column(String(32), nullable=False)
+    score_breakdown: Mapped[Dict[str, float]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    matched_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    policy_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    normalizer_version: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )
+    ontology_release_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        nullable=True
+    )
+    decision: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    decided_by: Mapped[Optional[str]] = mapped_column(
+        String(256), nullable=True
+    )
+    decided_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decision_reason: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
