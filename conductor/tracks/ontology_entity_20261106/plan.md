@@ -18,7 +18,7 @@
   - [x] Implement `ontology/registry.py`
 - [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
-## Phase 2: Ontology Interchange & Constraint Validation
+## Phase 2: Ontology Interchange & Constraint Validation [checkpoint: fe70ebe]
 
 - [x] Task: JSON-LD import and export (712afb9)
   - [x] Write tests: round trip of IRIs, labels, domain/range, inverses and
@@ -35,7 +35,7 @@
   - [x] Implement `ontology/constraints.py`
 - [x] Task: Document the supported constraint subset in
       `docs/semantics/ontology-constraints.md` (db35eca)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 ## Phase 3: Entity Identity, Resolution, Merge & Split
 
