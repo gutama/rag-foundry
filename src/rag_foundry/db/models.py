@@ -532,3 +532,39 @@ class ResolutionCandidateRecord(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class EntityLineageRecord(Base):
+    """One predecessor-to-successor link of a merge or split (ADR-0012).
+
+    A merge writes one row (merged entity -> survivor); a split writes one
+    row per successor. Rows of one operation share ``event_id``. Lineage is
+    append-only: nothing in the application deletes or edits it.
+    """
+
+    __tablename__ = "entity_lineage"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    event_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    predecessor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id"), nullable=False, index=True
+    )
+    successor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("entities.id"), nullable=False, index=True
+    )
+    actor_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    details: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

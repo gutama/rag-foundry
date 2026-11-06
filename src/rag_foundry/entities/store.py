@@ -93,6 +93,30 @@ def entity_from_record(record: EntityRecord) -> Entity:
     )
 
 
+def new_entity_record(entity: Entity) -> EntityRecord:
+    """Build a record for a new entity, without identifier rows.
+
+    Args:
+        entity: A validated entity.
+
+    Returns:
+        An unsaved record with an empty identifier collection.
+    """
+    return EntityRecord(
+        id=entity.id,
+        workspace_id=entity.workspace_id,
+        semantic_profile_id=entity.semantic_profile_id,
+        canonical_uri=entity.canonical_uri,
+        ontology_class_uri=entity.ontology_class_uri,
+        preferred_labels=dict(entity.preferred_labels),
+        aliases={k: list(v) for k, v in entity.aliases.items()},
+        status=entity.status,
+        created_at=entity.created_at,
+        updated_at=entity.created_at,
+        identifiers=[],
+    )
+
+
 def mention_from_record(record: EntityMentionRecord) -> Mention:
     """Convert a mention record to a model.
 
@@ -170,26 +194,14 @@ class EntityStore:
         await self.ensure_canonical_uri_free(workspace_id, canonical_uri)
         for scheme, value in entity.identifiers.items():
             await self._ensure_identifier_free(workspace_id, scheme, value)
-        self.session.add(
-            EntityRecord(
-                id=entity.id,
-                workspace_id=entity.workspace_id,
-                semantic_profile_id=entity.semantic_profile_id,
-                canonical_uri=entity.canonical_uri,
-                ontology_class_uri=entity.ontology_class_uri,
-                preferred_labels=dict(entity.preferred_labels),
-                aliases={k: list(v) for k, v in entity.aliases.items()},
-                status=entity.status,
-                created_at=entity.created_at,
-                updated_at=entity.created_at,
-                identifiers=[
-                    EntityIdentifierRecord(
-                        workspace_id=workspace_id, scheme=scheme, value=value
-                    )
-                    for scheme, value in entity.identifiers.items()
-                ],
+        record = new_entity_record(entity)
+        record.identifiers = [
+            EntityIdentifierRecord(
+                workspace_id=workspace_id, scheme=scheme, value=value
             )
-        )
+            for scheme, value in entity.identifiers.items()
+        ]
+        self.session.add(record)
         await self.session.flush()
         return entity
 
@@ -245,12 +257,7 @@ class EntityStore:
         Returns:
             The entity, or None.
         """
-        stmt = select(EntityIdentifierRecord.entity_id).where(
-            EntityIdentifierRecord.workspace_id == workspace_id,
-            EntityIdentifierRecord.scheme == scheme,
-            EntityIdentifierRecord.value == value,
-        )
-        entity_id = (await self.session.execute(stmt)).scalar_one_or_none()
+        entity_id = await self.identifier_holder(workspace_id, scheme, value)
         return None if entity_id is None else await self.get_entity(
             entity_id
         )
@@ -451,6 +458,26 @@ class EntityStore:
                 f"{canonical_uri} already names an entity in this workspace"
             )
 
+    async def identifier_holder(
+        self, workspace_id: uuid.UUID, scheme: str, value: str
+    ) -> Optional[uuid.UUID]:
+        """Return the id of the entity holding an identifier, if any.
+
+        Args:
+            workspace_id: Workspace to search.
+            scheme: Identifier scheme.
+            value: Identifier value.
+
+        Returns:
+            The holder's id, or None.
+        """
+        stmt = select(EntityIdentifierRecord.entity_id).where(
+            EntityIdentifierRecord.workspace_id == workspace_id,
+            EntityIdentifierRecord.scheme == scheme,
+            EntityIdentifierRecord.value == value,
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
     async def _ensure_identifier_free(
         self, workspace_id: uuid.UUID, scheme: str, value: str
     ) -> None:
@@ -459,12 +486,7 @@ class EntityStore:
         Raises:
             DuplicateIdentifierError: If the identifier is taken.
         """
-        stmt = select(EntityIdentifierRecord.entity_id).where(
-            EntityIdentifierRecord.workspace_id == workspace_id,
-            EntityIdentifierRecord.scheme == scheme,
-            EntityIdentifierRecord.value == value,
-        )
-        holder = (await self.session.execute(stmt)).scalar_one_or_none()
+        holder = await self.identifier_holder(workspace_id, scheme, value)
         if holder is not None:
             raise DuplicateIdentifierError(
                 f"{scheme} {value!r} already identifies entity {holder}"

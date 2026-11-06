@@ -26,6 +26,7 @@ ENTITY_TABLES = {
     "entity_identifiers",
     "entity_mentions",
     "resolution_candidates",
+    "entity_lineage",
 }
 
 
