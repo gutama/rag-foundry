@@ -53,12 +53,12 @@
         auto-approves above its threshold; candidates store the score breakdown
         and policy version; results are deterministic
   - [x] Implement
-- [~] Task: Merge and split with lineage
-  - [ ] Write tests: merge adds a redirect and moves aliases and identifiers
+- [x] Task: Merge and split with lineage (6816e12)
+  - [x] Write tests: merge adds a redirect and moves aliases and identifiers
         while keeping history; split creates successors; redirect chains
         resolve; merging an entity into itself or into an already-merged entity
         is rejected
-  - [ ] Implement `entities/lineage.py`
+  - [x] Implement `entities/lineage.py`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
 
 ## Phase 4: Semantic Assertions & Validation Pipeline
