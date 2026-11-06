@@ -712,3 +712,41 @@ class AssertionValidationRecord(Base):
     )
 
     assertion: Mapped["AssertionRecord"] = relationship("AssertionRecord")
+
+
+class ReviewItemRecord(Base):
+    """An item awaiting, or decided by, a steward (ADR-0022).
+
+    ``kind`` is ``resolution_candidate`` or ``assertion`` and ``target_id``
+    names the candidate or assertion. At most one item per target is open.
+    """
+
+    __tablename__ = "review_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False, index=True
+    )
+    semantic_profile_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(16), default="open", nullable=False, index=True
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    decided_by: Mapped[Optional[str]] = mapped_column(
+        String(256), nullable=True
+    )
+    decided_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decision_reason: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )

@@ -50,6 +50,7 @@ from rag_foundry.entities.store import (
     new_entity_record,
 )
 from rag_foundry.ontology.models import validate_iri, validate_labels
+from rag_foundry.stewardship.queue_records import ASSERTION_KIND, enqueue
 
 
 class LineageError(EntityError):
@@ -497,4 +498,9 @@ class EntityLineageService:
                 "the assertion against one of its successors"
             )
             record.updated_at = when
+            await enqueue(
+                self.session, ASSERTION_KIND, record.id,
+                record.workspace_id, record.semantic_profile_id,
+                record.review_reason,
+            )
         return [record.id for record in records]

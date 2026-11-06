@@ -12,6 +12,9 @@ reason and time to ``assertion_transitions``; entries are never edited or
 deleted. ``superseded`` is reserved for the dedicated supersede operation,
 which enforces the curated-versus-extracted rules of ADR-0013.
 
+Becoming ``validated`` puts the assertion in the steward review queue;
+leaving that state settles its review item with the same actor and reason.
+
 Methods flush but never commit; the caller owns the transaction.
 """
 
@@ -33,6 +36,11 @@ from rag_foundry.db.models import (
     EntityRecord,
 )
 from rag_foundry.entities.store import EntityNotFoundError, as_utc
+from rag_foundry.stewardship.queue_records import (
+    ASSERTION_KIND,
+    enqueue,
+    settle,
+)
 
 ALLOWED_TRANSITIONS: Dict[str, Set[str]] = {
     "candidate": {"validated", "invalid"},
@@ -396,4 +404,15 @@ class AssertionStore:
         )
         record.status = to_status
         record.updated_at = now
+        if to_status == "validated":
+            await enqueue(
+                self.session, ASSERTION_KIND, record.id,
+                record.workspace_id, record.semantic_profile_id,
+                "Validated; awaiting approval",
+            )
+        else:
+            outcome = to_status if to_status in ("approved", "rejected") \
+                else "closed"
+            await settle(self.session, ASSERTION_KIND, record.id, outcome,
+                         actor_id, reason)
         await self.session.flush()

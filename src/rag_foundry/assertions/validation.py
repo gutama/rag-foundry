@@ -49,6 +49,11 @@ from rag_foundry.entities.lineage import EntityLineageService, EntitySplitError
 from rag_foundry.entities.store import as_utc
 from rag_foundry.ontology.constraints import ConstraintValidator, Statement
 from rag_foundry.ontology.models import OntologyRelease
+from rag_foundry.stewardship.queue_records import (
+    ASSERTION_KIND,
+    enqueue,
+    settle,
+)
 
 VALIDATOR_ACTOR = "system:validator"
 COUNTED_STATUSES = ("validated", "approved")
@@ -176,6 +181,14 @@ class AssertionValidator:
         elif record.status == "approved":
             record.requires_review = not report.valid
             record.review_reason = None if report.valid else summary
+            if report.valid:
+                await settle(self.session, ASSERTION_KIND, record.id,
+                             "closed", actor_id, "Revalidation passed")
+            else:
+                await enqueue(
+                    self.session, ASSERTION_KIND, record.id,
+                    record.workspace_id, record.semantic_profile_id, summary,
+                )
             await self.session.flush()
         return report
 

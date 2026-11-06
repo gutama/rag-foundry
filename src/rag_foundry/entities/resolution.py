@@ -58,6 +58,11 @@ from rag_foundry.entities.store import (
     mention_from_record,
 )
 from rag_foundry.ontology.models import OntologyRelease
+from rag_foundry.stewardship.queue_records import (
+    CANDIDATE_KIND,
+    enqueue,
+    settle,
+)
 
 NORMALIZER_VERSION = "1"
 
@@ -332,6 +337,7 @@ class ResolutionPolicy(BaseModel):
 
 
 DEFAULT_POLICY = ResolutionPolicy()
+RE_RESOLUTION_ACTOR = "system:re-resolution"
 
 
 class ResolutionCandidate(BaseModel):
@@ -524,6 +530,15 @@ class ResolutionService:
         else:
             record.resolution_status = "candidate" if kept else "unresolved"
         await self.session.flush()
+        for candidate in records:
+            if candidate.decision == "pending":
+                await enqueue(
+                    self.session, CANDIDATE_KIND, candidate.id,
+                    mention.workspace_id, mention.semantic_profile_id,
+                    f"Candidate {candidate.rank} for mention {mention_id}: "
+                    f"{candidate.method} {candidate.score:.3f}",
+                )
+        await self.session.flush()
         return ResolutionOutcome(
             mention=mention_from_record(record),
             candidates=[_candidate_from_record(r) for r in records],
@@ -564,9 +579,14 @@ class ResolutionService:
             )
         now = datetime.now(timezone.utc)
         self._decide(candidate, "approved", actor_id, reason, now)
+        await settle(self.session, CANDIDATE_KIND, candidate.id,
+                     "approved", actor_id, reason)
         for other in await self._pending_records(candidate.mention_id):
             if other.id != candidate.id:
                 self._decide(other, "superseded", actor_id, None, now)
+                await settle(self.session, CANDIDATE_KIND, other.id,
+                             "closed", actor_id,
+                             "Another candidate was approved")
         mention = await self._mention_record(candidate.mention_id)
         mention.resolution_status = "resolved"
         mention.resolved_entity_id = candidate.entity_id
@@ -602,6 +622,8 @@ class ResolutionService:
             candidate, "rejected", actor_id, reason,
             datetime.now(timezone.utc),
         )
+        await settle(self.session, CANDIDATE_KIND, candidate.id,
+                     "rejected", actor_id, reason)
         await self.session.flush()
         if not await self._pending_records(candidate.mention_id):
             mention = await self._mention_record(candidate.mention_id)
@@ -738,8 +760,11 @@ class ResolutionService:
     ) -> None:
         """Supersede pending candidates before a new run."""
         for record in await self._pending_records(mention_id):
-            self._decide(record, "superseded", "system:re-resolution",
+            self._decide(record, "superseded", RE_RESOLUTION_ACTOR,
                          None, when)
+            await settle(self.session, CANDIDATE_KIND, record.id, "closed",
+                         RE_RESOLUTION_ACTOR,
+                         "Superseded by a new resolution run")
 
     async def _next_run_number(self, mention_id: uuid.UUID) -> int:
         """Return the number of the next resolution run for a mention."""
