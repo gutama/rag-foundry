@@ -7,79 +7,25 @@ import pytest_asyncio
 
 from rag_foundry.assertions import lifecycle as lc
 from rag_foundry.assertions import validation as av
-from rag_foundry.db.models import Chunk, Document, EntityRecord
+from rag_foundry.db.models import EntityRecord
 from rag_foundry.entities import lineage as lin
-from rag_foundry.entities import store as st
-from tests.ontology_samples import EX, build_finance_release
-
-ID = "http://id.example.org/entity/"
-WS = uuid.UUID("00000000-0000-4000-8000-0000000000aa")
-OTHER_WS = uuid.UUID("00000000-0000-4000-8000-0000000000cc")
-PROFILE = uuid.UUID("00000000-0000-4000-8000-0000000000bb")
-RELEASE = build_finance_release().model_copy(update={"status": "approved"})
-
-
-async def _chunk(session, workspace=WS):
-    """Create a document with one chunk; return the chunk id."""
-    document = Document(
-        document_id=uuid.uuid4(), workspace_id=workspace, title="Licence",
-        mime_type="application/pdf", checksum="0" * 64, parser_name="p",
-        parser_version="1", semantic_profile_id=PROFILE,
-    )
-    session.add(document)
-    await session.flush()
-    chunk = Chunk(
-        document_version_id=document.id, workspace_id=workspace,
-        text="PT Bank Central Asia Tbk is licensed by OJK.",
-        checksum="1" * 64, chunker_name="c", chunker_version="1",
-        semantic_profile_id=PROFILE,
-    )
-    session.add(chunk)
-    await session.flush()
-    return chunk.id
+from tests.assertion_helpers import (
+    ID,
+    RELEASE,
+    create_assertion,
+    seed,
+)
+from tests.ontology_samples import build_finance_release
 
 
 @pytest_asyncio.fixture
 async def world(session_factory):
     """Seed entities and evidence; yield (session, ids)."""
     async with session_factory() as session:
-        store = st.EntityStore(session)
-        ids = {}
-        for name, cls, workspace in [
-            ("bca", "Bank", WS), ("bca-dup", "Bank", WS),
-            ("ojk", "Regulator", WS), ("budi", "Person", WS),
-            ("far", "Bank", OTHER_WS),
-        ]:
-            entity = await store.create_entity(
-                workspace_id=workspace, semantic_profile_id=PROFILE,
-                canonical_uri=ID + name, ontology_class_uri=EX + cls,
-                preferred_labels={"en": name},
-            )
-            ids[name] = entity.id
-        ids["chunk"] = await _chunk(session)
-        ids["far-chunk"] = await _chunk(session, OTHER_WS)
-        yield session, ids
+        yield session, await seed(session)
 
 
-async def _assert(session, ids, subject="bca", prop="legalName", **kwargs):
-    """Create a candidate assertion."""
-    fields = {
-        "actor_id": "extractor:1",
-        "workspace_id": WS,
-        "semantic_profile_id": PROFILE,
-        "subject_entity_id": ids[subject],
-        "property_uri": EX + prop,
-        "origin": "extracted",
-        "extraction_method": "llm",
-        "confidence": 0.9,
-        "source_chunk_ids": [ids["chunk"]],
-    }
-    if "object" in kwargs:
-        fields["object_entity_id"] = ids[kwargs.pop("object")]
-    else:
-        fields["literal_value"] = kwargs.pop("literal", "PT BCA Tbk")
-    fields.update(kwargs)
-    return await lc.AssertionStore(session).create_assertion(**fields)
+_assert = create_assertion
 
 
 async def _validate(session, assertion, **kwargs):
