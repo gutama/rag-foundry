@@ -19,6 +19,7 @@
   - LightRAG Service Adapter (Isolated Graph Retrieval)
   - nano-GraphRAG (Experimentation & Conformance Testing)
   - Open Knowledge Format (OKF) JSON/YAML Schema Validation
+  - Ontology Interchange & Constraint Validation: in-house JSON-LD import/export and Turtle export over a documented OWL/RDFS/SHACL subset (`docs/semantics/ontology-constraints.md`); no rdflib/pySHACL runtime dependency (ADR-0011)
 - **Scale / Enterprise Options:** Qdrant (Dense Vector), OpenSearch (Lexical Search), Redis (Caching & Job Queue)
 
 ## Models & AI Services
