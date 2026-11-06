@@ -71,12 +71,16 @@ when a validator is created.
 
 | Kind | Fields | SHACL equivalent | Rules |
 | --- | --- | --- | --- |
-| `cardinality` | `min_count`, `max_count` | `sh:minCount`, `sh:maxCount` | At least one bound is set; bounds are non-negative; `min_count ≤ max_count`. Counted per subject and property. |
+| `cardinality` | `min_count`, `max_count` | `sh:minCount`, `sh:maxCount` | At least one bound is set; bounds are non-negative; `min_count ≤ max_count`. A `min_count` above zero needs a non-empty domain. Counted per subject and property. |
 | `allowed_values` | `allowed_values` | `sh:in` | The list is non-empty with no duplicates. Object properties list entity IRIs. Data properties list lexical forms that must be valid for the property's datatype. |
 
 Constraints apply to every subject of the property, the way SHACL's
-`sh:targetSubjectsOf` does. Shapes targeting classes or nodes (`sh:NodeShape`,
-`sh:targetClass`) and all other SHACL components are not supported.
+`sh:targetSubjectsOf` does. A `min_count` above zero also applies to every
+instance of the property's domain classes (including subclasses): an
+`Organization` without a required `foundedOn` violates it. The exported shape
+expresses this with `sh:targetClass` for each domain class, next to
+`sh:targetSubjectsOf`. Node shapes (`sh:NodeShape`), other targets and all
+other SHACL components are not supported.
 
 ## 4. Datatypes
 
@@ -106,7 +110,7 @@ formats always state the same triples.
 | Class | `owl:Class`, `rdfs:label`, `rdfs:comment`, `rdfs:subClassOf`, `owl:deprecated true` |
 | Object or data property | `owl:ObjectProperty` / `owl:DatatypeProperty`, `rdfs:domain`, `rdfs:range`, `owl:inverseOf`, `owl:deprecated true` |
 | Several domain or range classes | `[ a owl:Class ; owl:unionOf ( … ) ]` |
-| Constraints | One `sh:PropertyShape` per property, with `sh:path`, `sh:targetSubjectsOf`, `sh:minCount`, `sh:maxCount` and `sh:in` |
+| Constraints | One `sh:PropertyShape` per property, with `sh:path`, `sh:targetSubjectsOf`, `sh:minCount`, `sh:maxCount` and `sh:in`; when `sh:minCount` is above zero, also `sh:targetClass` for each domain class |
 | Identity rules, `temporal`, `provenance_required` | `rf:identityRule`, `rf:temporal`, `rf:provenanceRequired`, where `rf:` is `urn:rag-foundry:vocab#` |
 
 Export is deterministic: nodes are ordered ontology, classes, properties, then
@@ -136,6 +140,7 @@ Import is **closed-world**:
 | Repeated `rdfs:domain` or `rdfs:range` values (RDFS intersection) | `UnsupportedFeatureError` |
 | Datatype properties without `rdfs:range`, or with a datatype not in §4 | `UnsupportedFeatureError` |
 | A shape whose `sh:targetSubjectsOf` differs from its `sh:path` | `UnsupportedFeatureError` |
+| A shape whose `sh:targetClass` set is not exactly the property's domain, or that has `sh:targetClass` without `sh:minCount` above zero (or the reverse) | `UnsupportedFeatureError` |
 | SHACL constraint components other than `sh:minCount`, `sh:maxCount` and `sh:in`, e.g. `sh:pattern`, `sh:datatype`, `sh:class` | `UnsupportedConstraintError` (a subclass of `UnsupportedFeatureError`) |
 | Structural problems: missing `@graph`, zero or several ontology nodes, a missing version or title, relative IRIs, literals where IRIs are expected, two labels in one language, shapes for unknown properties, two shapes for one property, an inconsistent release | `OntologyImportError` |
 

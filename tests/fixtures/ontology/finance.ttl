@@ -105,6 +105,7 @@
 [] a sh:PropertyShape ;
     sh:path :foundedOn ;
     sh:targetSubjectsOf :foundedOn ;
+    sh:targetClass :Organization ;
     sh:minCount 1 ;
     sh:maxCount 1 .
 

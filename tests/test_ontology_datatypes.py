@@ -85,6 +85,7 @@ def test_is_valid_lexical_rejects_unsupported_datatypes():
         (dt.XSD_DECIMAL, "1.500", "1.5"),
         (dt.XSD_DECIMAL, "100", "100"),
         (dt.XSD_DECIMAL, "+.50", "0.5"),
+        (dt.XSD_DECIMAL, "-001.50", "-1.5"),
         (dt.XSD_STRING, " Spaced ", " Spaced "),
         (dt.XSD_DATE, "2026-11-06Z", "2026-11-06Z"),
     ],

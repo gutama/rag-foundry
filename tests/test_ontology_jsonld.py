@@ -161,6 +161,8 @@ def test_export_constraints_as_shacl_property_shapes():
     }
     founded = nodes["shape:" + EX + "foundedOn"]
     assert founded["sh:minCount"] == 1 and founded["sh:maxCount"] == 1
+    assert founded["sh:targetClass"] == [{"@id": EX + "Organization"}]
+    assert "sh:targetClass" not in nodes["shape:" + EX + "legalName"]
     tier = nodes["shape:" + EX + "riskTier"]
     assert tier["sh:in"] == {
         "@list": [
@@ -784,3 +786,51 @@ async def test_registry_import_draft_rules(session_factory):
         approved.classes[0].status = "approved"
         with pytest.raises(reg.InvalidReleaseError):
             await registry.import_draft(approved)
+
+
+def _shape_document(**shape):
+    """A document with one required-able data property and its shape."""
+    return _minimal_document(
+        prop={
+            "@id": "ex:nick",
+            "@type": "owl:DatatypeProperty",
+            "rdfs:label": "nick",
+            "rdfs:domain": {"@id": "ex:Person"},
+            "rdfs:range": {"@id": "xsd:string"},
+        },
+        shape=dict(
+            {"@type": "sh:PropertyShape", "sh:path": {"@id": "ex:nick"}},
+            **shape,
+        ),
+    )
+
+
+def test_import_reads_domain_targets_of_required_properties():
+    """minCount with sh:targetClass equal to the domain round-trips."""
+    doc = _shape_document(**{
+        "sh:targetSubjectsOf": {"@id": "ex:nick"},
+        "sh:targetClass": {"@id": "ex:Person"},
+        "sh:minCount": 1,
+    })
+    prop = ser.import_jsonld(doc).get_property(EX + "nick")
+    assert prop.constraint("cardinality").min_count == 1
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        pytest.param({"sh:minCount": 1}, id="min-count-without-target"),
+        pytest.param(
+            {"sh:minCount": 1, "sh:targetClass": {"@id": "ex:Agent"}},
+            id="target-other-than-domain",
+        ),
+        pytest.param(
+            {"sh:maxCount": 1, "sh:targetClass": {"@id": "ex:Person"}},
+            id="target-without-min-count",
+        ),
+    ],
+)
+def test_import_refuses_targets_that_change_the_meaning(shape):
+    """Targets must match what the validator enforces."""
+    with pytest.raises(UnsupportedFeatureError):
+        ser.import_jsonld(_shape_document(**shape))

@@ -370,6 +370,12 @@ class OntologyProperty(BaseModel):
         self.constraints.sort(
             key=lambda c: SUPPORTED_CONSTRAINT_KINDS.index(c.kind)
         )
+        cardinality = self.constraint("cardinality")
+        if cardinality and cardinality.min_count and not self.domain_class_uris:
+            raise ValueError(
+                "A minimum count needs a domain: it requires the property "
+                "of every instance of the domain classes"
+            )
         allowed = self.constraint("allowed_values")
         for value in allowed.allowed_values if allowed else []:
             if self.property_type == "object":

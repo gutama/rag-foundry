@@ -11,6 +11,8 @@ The provider-neutral model maps onto standard vocabulary:
   range classes mean "any of", which OWL writes as ``owl:unionOf``;
 - constraints are ``sh:PropertyShape`` nodes with ``sh:path``,
   ``sh:targetSubjectsOf``, ``sh:minCount``, ``sh:maxCount`` and ``sh:in``.
+  A minimum count also applies to every instance of the property's domain,
+  so its shape adds ``sh:targetClass`` for each domain class.
 
 Identity rules and the ``temporal``/``provenance_required`` flags have no
 standard term and use the ``rf:`` namespace (``RF_NAMESPACE``).
@@ -77,6 +79,7 @@ SH_MAX_COUNT = SH_NAMESPACE + "maxCount"
 SH_MIN_COUNT = SH_NAMESPACE + "minCount"
 SH_PATH = SH_NAMESPACE + "path"
 SH_PROPERTY_SHAPE = SH_NAMESPACE + "PropertyShape"
+SH_TARGET_CLASS = SH_NAMESPACE + "targetClass"
 SH_TARGET_SUBJECTS_OF = SH_NAMESPACE + "targetSubjectsOf"
 RF_IDENTITY_RULE = RF_NAMESPACE + "identityRule"
 RF_PROVENANCE_REQUIRED = RF_NAMESPACE + "provenanceRequired"
@@ -208,6 +211,10 @@ def _shape_node(prop: OntologyProperty) -> Dict[str, Any]:
         "sh:targetSubjectsOf": {"@id": prop.uri},
     }
     cardinality = prop.constraint("cardinality")
+    if cardinality is not None and cardinality.min_count:
+        node["sh:targetClass"] = [
+            {"@id": uri} for uri in prop.domain_class_uris
+        ]
     if cardinality is not None:
         if cardinality.min_count is not None:
             node["sh:minCount"] = cardinality.min_count
@@ -386,7 +393,7 @@ class _Reader:
         headers: List[Dict[str, Any]] = []
         classes: List[Dict[str, Any]] = []
         properties: List[Dict[str, Any]] = []
-        shapes: List[Tuple[str, List[Dict[str, Any]]]] = []
+        shapes: List[Tuple[str, List[Dict[str, Any]], List[str]]] = []
         for raw in graph:
             node = _Node(raw, self)
             kind = self._kind(node)
@@ -514,8 +521,8 @@ class _Reader:
 
     def _read_shape(
         self, node: _Node
-    ) -> Tuple[str, List[Dict[str, Any]]]:
-        """Read a sh:PropertyShape into its path and constraints."""
+    ) -> Tuple[str, List[Dict[str, Any]], List[str]]:
+        """Read a sh:PropertyShape into its path, constraints and classes."""
         path = self._reference(
             self._single(node.take(SH_PATH), "sh:path"), "sh:path"
         )
@@ -525,6 +532,10 @@ class _Reader:
                     f"The shape for {path} must target the subjects of "
                     "its own sh:path"
                 )
+        target_classes = [
+            self._reference(target, "sh:targetClass")
+            for target in node.take(SH_TARGET_CLASS)
+        ]
         minimum = node.take(SH_MIN_COUNT)
         maximum = node.take(SH_MAX_COUNT)
         members = node.take(SH_IN)
@@ -557,23 +568,42 @@ class _Reader:
                     ),
                 }
             )
-        return path, constraints
+        return path, constraints, target_classes
 
     @staticmethod
     def _attach_shapes(
         properties: List[Dict[str, Any]],
-        shapes: List[Tuple[str, List[Dict[str, Any]]]],
+        shapes: List[Tuple[str, List[Dict[str, Any]], List[str]]],
     ) -> None:
-        """Move each shape's constraints onto the property it targets."""
+        """Move each shape's constraints onto the property it targets.
+
+        Raises:
+            OntologyImportError: For duplicate shapes or unknown paths.
+            UnsupportedFeatureError: If ``sh:targetClass`` is not exactly
+                the property's domain, given exactly when minCount > 0.
+        """
         by_uri = {prop["uri"]: prop for prop in properties}
         seen: Set[str] = set()
-        for path, constraints in shapes:
+        for path, constraints, target_classes in shapes:
             if path in seen:
                 raise OntologyImportError(f"{path} has more than one shape")
             seen.add(path)
             if path not in by_uri:
                 raise OntologyImportError(
                     f"sh:path {path} is not a property of this ontology"
+                )
+            required = any(
+                c["kind"] == "cardinality" and c["min_count"]
+                for c in constraints
+            )
+            domain = set(by_uri[path].get("domain_class_uris", []))
+            if required != bool(target_classes) or (
+                target_classes and set(target_classes) != domain
+            ):
+                raise UnsupportedFeatureError(
+                    f"The shape for {path} must target the property's "
+                    "domain with sh:targetClass exactly when sh:minCount "
+                    "is above zero"
                 )
             by_uri[path]["constraints"] = constraints
 

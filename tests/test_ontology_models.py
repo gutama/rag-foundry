@@ -661,3 +661,24 @@ def test_data_allowed_values_must_match_the_datatype(datatype, values):
             "x", ["Organization"], XSD + datatype,
             constraints=[{"kind": "allowed_values", "allowed_values": values}],
         )
+
+
+def test_minimum_counts_need_a_domain():
+    """A required property must say whose instances must have it."""
+    with pytest.raises(ValidationError):
+        models.OntologyProperty(
+            uri=EX + "code",
+            preferred_labels={"en": "code"},
+            property_type="data",
+            datatype=XSD + "string",
+            constraints=[{"kind": "cardinality", "min_count": 1}],
+        )
+    optional = models.OntologyProperty(
+        uri=EX + "code",
+        preferred_labels={"en": "code"},
+        property_type="data",
+        datatype=XSD + "string",
+        constraints=[{"kind": "cardinality", "min_count": 0,
+                      "max_count": 1}],
+    )
+    assert optional.constraint("cardinality").min_count == 0
