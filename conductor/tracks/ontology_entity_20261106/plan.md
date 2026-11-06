@@ -20,11 +20,11 @@
 
 ## Phase 2: Ontology Interchange & Constraint Validation
 
-- [ ] Task: JSON-LD import and export
-  - [ ] Write tests: round trip of IRIs, labels, domain/range, inverses and
+- [x] Task: JSON-LD import and export (712afb9)
+  - [x] Write tests: round trip of IRIs, labels, domain/range, inverses and
         constraints; unsupported OWL or SHACL terms raise errors
-  - [ ] Implement in `ontology/serialization.py`
-- [ ] Task: Turtle export
+  - [x] Implement in `ontology/serialization.py`
+- [~] Task: Turtle export
   - [ ] Write tests: deterministic output, prefixes, comparison against a
         golden file
   - [ ] Implement
