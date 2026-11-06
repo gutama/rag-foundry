@@ -82,11 +82,11 @@
   - [x] Write tests: an extracted assertion cannot supersede a curated one;
         re-extracting a triple adds evidence without changing its status
   - [x] Implement
-- [~] Task: Handle the effect of entity changes on assertions
-  - [ ] Write tests: approved assertions that reference a split entity are
+- [x] Task: Handle the effect of entity changes on assertions (766fbf7)
+  - [x] Write tests: approved assertions that reference a split entity are
         flagged for re-review; assertions that reference a merged entity are
         re-pointed on revalidation
-  - [ ] Implement
+  - [x] Implement
 - [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
 
 ## Phase 5: Curator Review Queue, Audit & Semantic Metrics
