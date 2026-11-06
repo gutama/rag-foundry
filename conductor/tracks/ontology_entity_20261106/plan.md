@@ -91,16 +91,16 @@
 
 ## Phase 5: Curator Review Queue, Audit & Semantic Metrics
 
-- [ ] Task: Review queue service
-  - [ ] Write tests:
+- [x] Task: Review queue service (924cc62)
+  - [x] Write tests:
     - items are enqueued when a candidate is created and when an assertion is
       validated;
     - items can be filtered by kind, workspace and status;
     - approve and reject record actor, time, reason and profile;
     - approval is refused when validation failed or evidence is missing;
     - approving the same item twice has no extra effect.
-  - [ ] Implement `stewardship/review_queue.py`
-- [ ] Task: Audit trail and explainability
+  - [x] Implement `stewardship/review_queue.py`
+- [~] Task: Audit trail and explainability
   - [ ] Write tests: an `AuditEvent` is written for each merge, split, decision
         and transition; `explain_entity_link` returns the full path
   - [ ] Implement
