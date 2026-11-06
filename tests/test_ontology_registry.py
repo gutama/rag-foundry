@@ -3,11 +3,9 @@
 import uuid
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from rag_foundry.db.models import Base, OntologyClassRecord
+from rag_foundry.db.models import OntologyClassRecord
 from rag_foundry.ontology import registry as reg
 from rag_foundry.ontology.models import (
     OntologyClass,
@@ -18,16 +16,6 @@ from rag_foundry.ontology.models import (
 ONTO = "http://example.org/onto"
 EX = ONTO + "#"
 XSD = "http://www.w3.org/2001/XMLSchema#"
-
-
-@pytest_asyncio.fixture
-async def session_factory(tmp_path):
-    """Yield a session factory bound to a fresh SQLite schema."""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'r.db'}")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield async_sessionmaker(engine, expire_on_commit=False)
-    await engine.dispose()
 
 
 def _cls(name, parents=(), **kwargs):

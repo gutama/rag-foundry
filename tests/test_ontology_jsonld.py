@@ -5,10 +5,7 @@ import json
 import uuid
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from rag_foundry.db.models import Base
 from rag_foundry.ontology import registry as reg
 from rag_foundry.ontology import serialization as ser
 from rag_foundry.ontology.models import (
@@ -746,16 +743,6 @@ def test_import_rejects_two_shapes_for_one_property():
 
 
 # --- Persisting imports ----------------------------------------------------
-
-
-@pytest_asyncio.fixture
-async def session_factory(tmp_path):
-    """Yield a session factory bound to a fresh SQLite schema."""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'j.db'}")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield async_sessionmaker(engine, expire_on_commit=False)
-    await engine.dispose()
 
 
 @pytest.mark.asyncio

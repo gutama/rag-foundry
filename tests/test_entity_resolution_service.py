@@ -3,11 +3,9 @@
 import uuid
 
 import pytest
-import pytest_asyncio
 from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from rag_foundry.db.models import Base, EntityRecord
+from rag_foundry.db.models import EntityRecord
 from rag_foundry.entities import resolution as res
 from rag_foundry.entities import store as st
 from tests.ontology_samples import EX, build_finance_release
@@ -19,16 +17,6 @@ AUTO = res.ResolutionPolicy(
     policy_id="trusted-names", version="3", auto_approve=True,
     auto_approve_threshold=0.95,
 )
-
-
-@pytest_asyncio.fixture
-async def session_factory(tmp_path):
-    """Yield a session factory bound to a fresh SQLite schema."""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'r.db'}")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield async_sessionmaker(engine, expire_on_commit=False)
-    await engine.dispose()
 
 
 async def _seed(session):

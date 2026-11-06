@@ -5,6 +5,32 @@ import docx
 import fitz
 import openpyxl
 import pytest
+import pytest_asyncio
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from rag_foundry.db.models import Base
+
+
+@pytest_asyncio.fixture
+async def session_factory(tmp_path):
+    """Yield a session factory bound to a fresh SQLite schema.
+
+    Foreign keys are enforced, as PostgreSQL does; SQLite skips them unless
+    asked, which once hid an insert-ordering bug from the test suite.
+    """
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _enforce_foreign_keys(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield async_sessionmaker(engine, expire_on_commit=False)
+    await engine.dispose()
 
 
 @pytest.fixture

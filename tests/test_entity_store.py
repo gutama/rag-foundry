@@ -4,14 +4,12 @@ import uuid
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from rag_foundry.db.models import Base, EntityIdentifierRecord, EntityRecord
+from rag_foundry.db.models import EntityIdentifierRecord, EntityRecord
 from rag_foundry.entities import store as st
 
 EX = "http://example.org/finance#"
@@ -28,16 +26,6 @@ ENTITY_TABLES = {
     "resolution_candidates",
     "entity_lineage",
 }
-
-
-@pytest_asyncio.fixture
-async def session_factory(tmp_path):
-    """Yield a session factory bound to a fresh SQLite schema."""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'e.db'}")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield async_sessionmaker(engine, expire_on_commit=False)
-    await engine.dispose()
 
 
 async def _bank(store, name="bca", workspace=WS, **kwargs):

@@ -3,10 +3,8 @@
 import uuid
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from rag_foundry.db.models import Base, EntityRecord
+from rag_foundry.db.models import EntityRecord
 from rag_foundry.entities import lineage as lin
 from rag_foundry.entities import resolution as res
 from rag_foundry.entities import store as st
@@ -17,16 +15,6 @@ WS = uuid.UUID("00000000-0000-4000-8000-0000000000aa")
 OTHER_WS = uuid.UUID("00000000-0000-4000-8000-0000000000cc")
 PROFILE = uuid.UUID("00000000-0000-4000-8000-0000000000bb")
 STEWARD = "steward:ana"
-
-
-@pytest_asyncio.fixture
-async def session_factory(tmp_path):
-    """Yield a session factory bound to a fresh SQLite schema."""
-    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'l.db'}")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield async_sessionmaker(engine, expire_on_commit=False)
-    await engine.dispose()
 
 
 async def _entity(session, name, cls="Bank", workspace=WS, **kwargs):

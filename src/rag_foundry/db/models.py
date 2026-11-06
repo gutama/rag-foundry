@@ -568,3 +568,12 @@ class EntityLineageRecord(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    # Relationships let the unit of work insert new successor entities
+    # before the lineage rows that reference them.
+    predecessor: Mapped["EntityRecord"] = relationship(
+        "EntityRecord", foreign_keys=[predecessor_id]
+    )
+    successor: Mapped["EntityRecord"] = relationship(
+        "EntityRecord", foreign_keys=[successor_id]
+    )
