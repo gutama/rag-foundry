@@ -104,7 +104,7 @@
   - [x] Write tests: an `AuditEvent` is written for each merge, split, decision
         and transition; `explain_entity_link` returns the full path
   - [x] Implement
-- [~] Task: Ontology and entity metrics
-  - [ ] Write tests: compute each of the five metrics on a fixture dataset
-  - [ ] Implement `stewardship/metrics.py`
+- [x] Task: Ontology and entity metrics (a8de405)
+  - [x] Write tests: compute each of the five metrics on a fixture dataset
+  - [x] Implement `stewardship/metrics.py`
 - [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)
