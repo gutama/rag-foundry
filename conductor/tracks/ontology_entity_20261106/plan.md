@@ -28,12 +28,12 @@
   - [x] Write tests: deterministic output, prefixes, comparison against a
         golden file
   - [x] Implement
-- [~] Task: Constraint validator
-  - [ ] Write tests: domain/range with subclass inference, cardinality,
+- [x] Task: Constraint validator (2770d36)
+  - [x] Write tests: domain/range with subclass inference, cardinality,
         datatype, allowed values; any other constraint kind raises
         `UnsupportedConstraintError`
-  - [ ] Implement `ontology/constraints.py`
-- [ ] Task: Document the supported constraint subset in
+  - [x] Implement `ontology/constraints.py`
+- [~] Task: Document the supported constraint subset in
       `docs/semantics/ontology-constraints.md`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
