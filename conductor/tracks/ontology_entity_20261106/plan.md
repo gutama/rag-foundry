@@ -78,11 +78,11 @@
     - confidence below the policy minimum is caught;
     - the stored report pins the ontology release used.
   - [x] Implement `assertions/validation.py`
-- [~] Task: Protect curated assertions from extracted ones
-  - [ ] Write tests: an extracted assertion cannot supersede a curated one;
+- [x] Task: Protect curated assertions from extracted ones (9eeb75b)
+  - [x] Write tests: an extracted assertion cannot supersede a curated one;
         re-extracting a triple adds evidence without changing its status
-  - [ ] Implement
-- [ ] Task: Handle the effect of entity changes on assertions
+  - [x] Implement
+- [~] Task: Handle the effect of entity changes on assertions
   - [ ] Write tests: approved assertions that reference a split entity are
         flagged for re-review; assertions that reference a merged entity are
         re-pointed on revalidation
