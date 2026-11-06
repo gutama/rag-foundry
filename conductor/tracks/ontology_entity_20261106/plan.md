@@ -33,8 +33,8 @@
         datatype, allowed values; any other constraint kind raises
         `UnsupportedConstraintError`
   - [x] Implement `ontology/constraints.py`
-- [~] Task: Document the supported constraint subset in
-      `docs/semantics/ontology-constraints.md`
+- [x] Task: Document the supported constraint subset in
+      `docs/semantics/ontology-constraints.md` (db35eca)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 ## Phase 3: Entity Identity, Resolution, Merge & Split
