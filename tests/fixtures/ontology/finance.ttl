@@ -1,0 +1,131 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rf: <urn:rag-foundry:vocab#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix : <http://example.org/finance#> .
+
+<http://example.org/finance> a owl:Ontology ;
+    owl:versionInfo "1.0.0" ;
+    rdfs:label "Finance Ontology" ;
+    rdfs:comment "Sample ontology for tests" .
+
+:Agent a owl:Class ;
+    rdfs:label "Agent"@en, "Agen"@id .
+
+:Bank a owl:Class ;
+    rdfs:label "Bank"@en, "Bank"@id ;
+    rdfs:comment "A licensed deposit-taking institution"@en ;
+    rdfs:subClassOf :Organization ;
+    rf:identityRule "same national bank code", "same legal name and jurisdiction" .
+
+:Organization a owl:Class ;
+    rdfs:label "Organization"@en, "Organisasi"@id ;
+    rdfs:subClassOf :Agent .
+
+:Person a owl:Class ;
+    rdfs:label "Person"@en, "Orang"@id ;
+    rdfs:subClassOf :Agent .
+
+:Regulator a owl:Class ;
+    rdfs:label "Regulator"@en ;
+    rdfs:subClassOf :Organization .
+
+:SavingsAndLoan a owl:Class ;
+    rdfs:label "SavingsAndLoan"@en ;
+    rdfs:subClassOf :Bank ;
+    owl:deprecated true .
+
+:employedBy a owl:ObjectProperty ;
+    rdfs:label "employed by"@en ;
+    rdfs:domain :Person ;
+    rdfs:range :Organization ;
+    rf:temporal false ;
+    rf:provenanceRequired true .
+
+:employs a owl:ObjectProperty ;
+    rdfs:label "employs"@en, "mempekerjakan"@id ;
+    rdfs:domain :Organization ;
+    rdfs:range :Person ;
+    owl:inverseOf :employedBy ;
+    rf:temporal true ;
+    rf:provenanceRequired true .
+
+:foundedOn a owl:DatatypeProperty ;
+    rdfs:label "founded on"@en ;
+    rdfs:domain :Organization ;
+    rdfs:range xsd:date ;
+    rf:temporal false ;
+    rf:provenanceRequired true .
+
+:isSystemic a owl:DatatypeProperty ;
+    rdfs:label "is systemic"@en ;
+    rdfs:domain :Bank ;
+    rdfs:range xsd:boolean ;
+    rf:temporal false ;
+    rf:provenanceRequired true ;
+    owl:deprecated true .
+
+:legalName a owl:DatatypeProperty ;
+    rdfs:label "legal name"@en ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( :Organization :Person ) ] ;
+    rdfs:range xsd:string ;
+    rf:temporal false ;
+    rf:provenanceRequired true .
+
+:licenceStatus a owl:DatatypeProperty ;
+    rdfs:label "licence status"@en ;
+    rdfs:domain :Bank ;
+    rdfs:range xsd:string ;
+    rf:temporal true ;
+    rf:provenanceRequired true .
+
+:licensedBy a owl:ObjectProperty ;
+    rdfs:label "licensed by"@en ;
+    rdfs:domain :Bank ;
+    rdfs:range :Regulator ;
+    rf:temporal false ;
+    rf:provenanceRequired true .
+
+:riskTier a owl:DatatypeProperty ;
+    rdfs:label "risk tier"@en ;
+    rdfs:domain :Bank ;
+    rdfs:range xsd:integer ;
+    rf:temporal false ;
+    rf:provenanceRequired false .
+
+:supervises a owl:ObjectProperty ;
+    rdfs:label "supervises"@en ;
+    rdfs:comment "Prudential supervision relationship"@en ;
+    rdfs:domain :Regulator ;
+    rdfs:range [ a owl:Class ; owl:unionOf ( :Bank :Person ) ] ;
+    rf:temporal false ;
+    rf:provenanceRequired true .
+
+[] a sh:PropertyShape ;
+    sh:path :foundedOn ;
+    sh:targetSubjectsOf :foundedOn ;
+    sh:targetClass :Organization ;
+    sh:minCount 1 ;
+    sh:maxCount 1 .
+
+[] a sh:PropertyShape ;
+    sh:path :legalName ;
+    sh:targetSubjectsOf :legalName ;
+    sh:maxCount 1 .
+
+[] a sh:PropertyShape ;
+    sh:path :licenceStatus ;
+    sh:targetSubjectsOf :licenceStatus ;
+    sh:maxCount 1 ;
+    sh:in ( "active" "suspended" "revoked" ) .
+
+[] a sh:PropertyShape ;
+    sh:path :licensedBy ;
+    sh:targetSubjectsOf :licensedBy ;
+    sh:in ( :ojk :bankIndonesia ) .
+
+[] a sh:PropertyShape ;
+    sh:path :riskTier ;
+    sh:targetSubjectsOf :riskTier ;
+    sh:in ( "1"^^xsd:integer "2"^^xsd:integer "3"^^xsd:integer ) .
