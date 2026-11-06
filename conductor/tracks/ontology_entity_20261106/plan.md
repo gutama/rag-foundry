@@ -11,11 +11,11 @@
   - [x] Write tests: ORM round trip of releases, classes and properties on
         aiosqlite
   - [x] Implement the ORM tables and the Alembic migration
-- [ ] Task: Implement the `OntologyRegistry` service
-  - [ ] Write tests: create a draft, add terms, publish, approved releases are
+- [x] Task: Implement the `OntologyRegistry` service (20b2692)
+  - [x] Write tests: create a draft, add terms, publish, approved releases are
         immutable, new draft from an approved release, deprecate a term, look up
         by IRI, subclass closure
-  - [ ] Implement `ontology/registry.py`
+  - [x] Implement `ontology/registry.py`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: Ontology Interchange & Constraint Validation
