@@ -11,10 +11,13 @@ from rag_foundry.chunking.models import (
     compute_chunk_checksum,
 )
 from rag_foundry.parsing.models import CanonicalDocument, DocumentElement
+from rag_foundry.retrieval.models import BoundingBox
 
 _MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+")
 _TABLE_SEPARATOR_RE = re.compile(r"^\|?[\s:-]+(?:\|[\s:-]+)*\|?$")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_DEFAULT_PAGE_WIDTH = 612.0
+_DEFAULT_PAGE_HEIGHT = 792.0
 
 
 @dataclass
@@ -28,7 +31,7 @@ class _HeadingEntry:
 
 
 class StructuralChunker:
-    """Splits a CanonicalDocument into structure-aware, provenance-rich chunks."""
+    """Splits a CanonicalDocument into structure-aware, provenance chunks."""
 
     name: str = "structural"
     version: str = "1.0.0"
@@ -41,7 +44,9 @@ class StructuralChunker:
         """
         self.config = config or ChunkingConfig()
 
-    def chunk_document(self, document: CanonicalDocument) -> List[DocumentChunk]:
+    def chunk_document(
+        self, document: CanonicalDocument
+    ) -> List[DocumentChunk]:
         """Chunk an ordered CanonicalDocument while preserving hierarchy.
 
         Args:
@@ -54,6 +59,7 @@ class StructuralChunker:
             return []
 
         ordered = sorted(document.elements, key=lambda e: e.sequence_number)
+        page_extents = self._compute_page_extents(ordered)
         heading_stack: List[_HeadingEntry] = []
         heading_by_id: Dict[uuid.UUID, _HeadingEntry] = {}
         prose_buffer: List[DocumentElement] = []
@@ -65,23 +71,33 @@ class StructuralChunker:
                 continue
 
             if elem.element_type == "heading":
-                self._flush_prose(prose_buffer, heading_stack, chunks)
+                self._flush_prose(
+                    prose_buffer, heading_stack, chunks, page_extents
+                )
                 level = self._resolve_heading_level(elem, heading_by_id)
-                self._emit_unbodied_leaf_heading(heading_stack, level, chunks)
+                self._emit_unbodied_leaf_heading(
+                    heading_stack, level, chunks, page_extents
+                )
                 self._push_heading(
                     elem, level, text, heading_stack, heading_by_id
                 )
             elif elem.element_type == "table":
-                self._flush_prose(prose_buffer, heading_stack, chunks)
-                self._emit_table(elem, heading_stack, chunks)
+                self._flush_prose(
+                    prose_buffer, heading_stack, chunks, page_extents
+                )
+                self._emit_table(elem, heading_stack, chunks, page_extents)
             elif elem.element_type == "figure":
-                self._flush_prose(prose_buffer, heading_stack, chunks)
-                self._emit_figure(elem, heading_stack, chunks)
+                self._flush_prose(
+                    prose_buffer, heading_stack, chunks, page_extents
+                )
+                self._emit_figure(elem, heading_stack, chunks, page_extents)
             else:
                 prose_buffer.append(elem)
 
-        self._flush_prose(prose_buffer, heading_stack, chunks)
-        self._emit_unbodied_leaf_heading(heading_stack, 1, chunks)
+        self._flush_prose(prose_buffer, heading_stack, chunks, page_extents)
+        self._emit_unbodied_leaf_heading(
+            heading_stack, 1, chunks, page_extents
+        )
 
         return chunks
 
@@ -121,6 +137,7 @@ class StructuralChunker:
         heading_stack: List[_HeadingEntry],
         next_level: int,
         chunks: List[DocumentChunk],
+        page_extents: Dict[int, Tuple[float, float]],
     ) -> None:
         """Emit a chunk for a leaf heading that had no child headings or body.
 
@@ -128,6 +145,7 @@ class StructuralChunker:
             heading_stack: Current active heading stack.
             next_level: Heading level of the incoming heading (or 1 at EOF).
             chunks: Output list to append emitted DocumentChunk instances to.
+            page_extents: Per-page fallback (width, height) bounds.
         """
         if not heading_stack:
             return
@@ -141,6 +159,7 @@ class StructuralChunker:
                     section_path=section_path,
                     elements=[top.element],
                     extra_metadata={"heading_only": True},
+                    page_extents=page_extents,
                 )
             )
             self._mark_stack_emitted(heading_stack)
@@ -194,6 +213,7 @@ class StructuralChunker:
         elem: DocumentElement,
         heading_stack: List[_HeadingEntry],
         chunks: List[DocumentChunk],
+        page_extents: Dict[int, Tuple[float, float]],
     ) -> None:
         """Emit a figure element as an atomic chunk under the active section.
 
@@ -201,6 +221,7 @@ class StructuralChunker:
             elem: Figure DocumentElement.
             heading_stack: Active heading stack.
             chunks: Output chunk list.
+            page_extents: Per-page fallback (width, height) bounds.
         """
         section_path = [entry.title for entry in heading_stack]
         chunks.append(
@@ -210,6 +231,7 @@ class StructuralChunker:
                 section_path=section_path,
                 elements=[elem],
                 extra_metadata={"atomic_element": "figure"},
+                page_extents=page_extents,
             )
         )
         self._mark_stack_emitted(heading_stack)
@@ -219,6 +241,7 @@ class StructuralChunker:
         elem: DocumentElement,
         heading_stack: List[_HeadingEntry],
         chunks: List[DocumentChunk],
+        page_extents: Dict[int, Tuple[float, float]],
     ) -> None:
         """Emit a table intact, or split oversized tables by row with headers.
 
@@ -226,6 +249,7 @@ class StructuralChunker:
             elem: Table DocumentElement.
             heading_stack: Active heading stack.
             chunks: Output chunk list.
+            page_extents: Per-page fallback (width, height) bounds.
         """
         section_path = [entry.title for entry in heading_stack]
         raw_text = elem.text.strip()
@@ -238,6 +262,7 @@ class StructuralChunker:
                     section_path=section_path,
                     elements=[elem],
                     extra_metadata={"atomic_element": "table"},
+                    page_extents=page_extents,
                 )
             )
             self._mark_stack_emitted(heading_stack)
@@ -253,6 +278,7 @@ class StructuralChunker:
                     section_path=section_path,
                     elements=[elem],
                     extra_metadata={"atomic_element": "table"},
+                    page_extents=page_extents,
                 )
             )
             self._mark_stack_emitted(heading_stack)
@@ -288,6 +314,7 @@ class StructuralChunker:
                         "table_part": part_idx,
                         "table_total_parts": total_parts,
                     },
+                    page_extents=page_extents,
                 )
             )
         self._mark_stack_emitted(heading_stack)
@@ -331,6 +358,7 @@ class StructuralChunker:
         prose_buffer: List[DocumentElement],
         heading_stack: List[_HeadingEntry],
         chunks: List[DocumentChunk],
+        page_extents: Dict[int, Tuple[float, float]],
     ) -> None:
         """Pack buffered prose elements into size-bounded overlapping chunks.
 
@@ -338,6 +366,7 @@ class StructuralChunker:
             prose_buffer: Buffered non-heading elements (cleared in place).
             heading_stack: Active heading stack.
             chunks: Output chunk list.
+            page_extents: Per-page fallback (width, height) bounds.
         """
         if not prose_buffer:
             return
@@ -376,6 +405,7 @@ class StructuralChunker:
                     text=current_text,
                     section_path=section_path,
                     elements=unique_elems,
+                    page_extents=page_extents,
                 )
             )
 
@@ -390,6 +420,7 @@ class StructuralChunker:
                         text=seg,
                         section_path=section_path,
                         elements=[elem],
+                        page_extents=page_extents,
                     )
                 )
                 continue
@@ -409,7 +440,9 @@ class StructuralChunker:
 
             _emit_current()
             prev_elem = current_items[-1][0]
-            overlap_sep = " " if prev_elem.element_id == elem.element_id else "\n\n"
+            overlap_sep = (
+                " " if prev_elem.element_id == elem.element_id else "\n\n"
+            )
             max_overlap = min(
                 overlap_chars,
                 max(0, max_chars - len(overlap_sep) - len(seg)),
@@ -445,7 +478,9 @@ class StructuralChunker:
         Returns:
             List of (segment_text, is_hard_slice) tuples.
         """
-        sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
+        sentences = [
+            s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()
+        ]
         segments: List[Tuple[str, bool]] = []
 
         for sentence in sentences:
@@ -509,7 +544,7 @@ class StructuralChunker:
     def _dedupe_elements(
         elements: List[DocumentElement],
     ) -> List[DocumentElement]:
-        """Deduplicate elements by element_id while preserving first-seen order."""
+        """Deduplicate elements by element_id while preserving order."""
         seen: set[uuid.UUID] = set()
         unique: List[DocumentElement] = []
         for elem in elements:
@@ -518,6 +553,98 @@ class StructuralChunker:
                 unique.append(elem)
         return unique
 
+    @staticmethod
+    def _compute_page_extents(
+        elements: List[DocumentElement],
+    ) -> Dict[int, Tuple[float, float]]:
+        """Compute fallback per-page (width, height) bounds for raw boxes.
+
+        Args:
+            elements: Ordered DocumentElement instances in the document.
+
+        Returns:
+            Mapping from 1-based page number to fallback (width, height).
+        """
+        extents: Dict[int, Tuple[float, float]] = {}
+        for elem in elements:
+            if (
+                elem.bounding_box is None
+                or elem.page_number is None
+                or elem.page_number < 1
+            ):
+                continue
+            x0, y0, x1, y1 = (float(v) for v in elem.bounding_box)
+            if min(x0, y0, x1, y1) < 0.0 or x1 < x0 or y1 < y0:
+                continue
+            prev_w, prev_h = extents.get(
+                elem.page_number, (_DEFAULT_PAGE_WIDTH, _DEFAULT_PAGE_HEIGHT)
+            )
+            extents[elem.page_number] = (max(prev_w, x1), max(prev_h, y1))
+        return extents
+
+    @staticmethod
+    def _extract_bounding_boxes(
+        elements: List[DocumentElement],
+        page_extents: Optional[Dict[int, Tuple[float, float]]] = None,
+    ) -> List[BoundingBox]:
+        """Extract normalized, deduplicated BoundingBox provenance records.
+
+        Args:
+            elements: Contributing DocumentElement objects.
+            page_extents: Optional fallback per-page (width, height) bounds.
+
+        Returns:
+            Ordered list of unique validated BoundingBox instances.
+        """
+        boxes: List[BoundingBox] = []
+        seen: set[Tuple[int, float, float, float, float]] = set()
+
+        for elem in elements:
+            if (
+                elem.bounding_box is None
+                or elem.page_number is None
+                or elem.page_number < 1
+            ):
+                continue
+
+            x0, y0, x1, y1 = (float(v) for v in elem.bounding_box)
+            if min(x0, y0, x1, y1) < 0.0 or x1 < x0 or y1 < y0:
+                continue
+
+            if max(x0, y0, x1, y1) > 1.0:
+                raw_w = elem.metadata.get("page_width")
+                raw_h = elem.metadata.get("page_height")
+                if (
+                    isinstance(raw_w, (int, float))
+                    and isinstance(raw_h, (int, float))
+                    and raw_w > 0
+                    and raw_h > 0
+                ):
+                    width, height = float(raw_w), float(raw_h)
+                elif page_extents and elem.page_number in page_extents:
+                    width, height = page_extents[elem.page_number]
+                else:
+                    width, height = _DEFAULT_PAGE_WIDTH, _DEFAULT_PAGE_HEIGHT
+                x0 = min(1.0, max(0.0, x0 / width))
+                y0 = min(1.0, max(0.0, y0 / height))
+                x1 = min(1.0, max(x0, x1 / width))
+                y1 = min(1.0, max(y0, y1 / height))
+
+            key = (elem.page_number, x0, y0, x1, y1)
+            if key in seen:
+                continue
+            seen.add(key)
+            boxes.append(
+                BoundingBox(
+                    page=elem.page_number,
+                    l=x0,
+                    t=y0,
+                    r=x1,
+                    b=y1,
+                )
+            )
+        return boxes
+
     def _build_chunk(
         self,
         chunk_index: int,
@@ -525,6 +652,7 @@ class StructuralChunker:
         section_path: List[str],
         elements: List[DocumentElement],
         extra_metadata: Optional[Dict[str, Any]] = None,
+        page_extents: Optional[Dict[int, Tuple[float, float]]] = None,
     ) -> DocumentChunk:
         """Construct a DocumentChunk with deterministic checksum and provenance.
 
@@ -534,6 +662,7 @@ class StructuralChunker:
             section_path: Active section heading path.
             elements: Contributing DocumentElement objects.
             extra_metadata: Optional additional chunk metadata.
+            page_extents: Optional fallback per-page (width, height) bounds.
 
         Returns:
             Populated DocumentChunk instance.
@@ -554,6 +683,7 @@ class StructuralChunker:
                 if elem.page_number is not None and elem.page_number >= 1
             }
         )
+        bounding_boxes = self._extract_bounding_boxes(elements, page_extents)
         element_ids = [elem.element_id for elem in elements]
         element_types: List[str] = []
         for elem in elements:
@@ -569,7 +699,7 @@ class StructuralChunker:
             text=final_text,
             section_path=list(section_path),
             page_numbers=page_numbers,
-            bounding_boxes=[],
+            bounding_boxes=bounding_boxes,
             element_ids=element_ids,
             element_types=element_types,
             checksum=compute_chunk_checksum(section_path, final_text),

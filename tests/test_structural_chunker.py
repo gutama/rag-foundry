@@ -511,4 +511,159 @@ def test_single_line_table_and_long_sentence_word_split_edge_cases() -> None:
     assert " ".join(c.text for c in prose_chunks) == long_sentence.text
 
 
+def test_provenance_aggregates_sorted_pages_and_normalized_bounding_boxes() -> None:
+    """Chunk aggregates unique sorted page numbers and validated BoundingBoxes."""
+    elements = [
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=1,
+            text="First paragraph on page 2 with normalized box.",
+            page_number=2,
+            bounding_box=(0.1, 0.2, 0.9, 0.35),
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=2,
+            text="Second paragraph on page 1 with raw page-point box.",
+            page_number=1,
+            bounding_box=(60.0, 100.0, 540.0, 200.0),
+            metadata={"page_width": 600.0, "page_height": 800.0},
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=3,
+            text="Third paragraph missing coordinates and page number.",
+            page_number=None,
+            bounding_box=None,
+        ),
+    ]
+    chunker = StructuralChunker(ChunkingConfig(target_chars=1000, max_chars=2000))
+    chunks = chunker.chunk_document(_make_doc(elements))
 
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk.page_numbers == [1, 2]
+    assert len(chunk.bounding_boxes) == 2
+
+    box_a, box_b = chunk.bounding_boxes
+    assert box_a.page == 2
+    assert (box_a.l, box_a.t, box_a.r, box_a.b) == (0.1, 0.2, 0.9, 0.35)
+    assert box_b.page == 1
+    assert pytest.approx((box_b.l, box_b.t, box_b.r, box_b.b)) == (
+        0.1,
+        0.125,
+        0.9,
+        0.25,
+    )
+
+
+def test_provenance_gracefully_skips_invalid_or_unpaged_bounding_boxes() -> None:
+    """Inverted or unpaged boxes are skipped without failing chunk emission."""
+    elements = [
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=1,
+            text="Inverted box coordinates should be skipped safely.",
+            page_number=1,
+            bounding_box=(0.8, 0.2, 0.2, 0.5),
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=2,
+            text="Box without page number should also be skipped.",
+            page_number=None,
+            bounding_box=(0.1, 0.1, 0.5, 0.5),
+        ),
+    ]
+    chunks = StructuralChunker().chunk_document(_make_doc(elements))
+
+    assert len(chunks) == 1
+    assert chunks[0].bounding_boxes == []
+    assert chunks[0].page_numbers == [1]
+
+
+@pytest.mark.asyncio
+async def test_end_to_end_parsing_to_chunking_across_pdf_docx_xlsx(
+    sample_pdf_bytes: bytes,
+    sample_docx_bytes: bytes,
+    sample_xlsx_bytes: bytes,
+) -> None:
+    """ParserRouter + StructuralChunker works across PDF, DOCX, and XLSX."""
+    from rag_foundry.parsing.router import ParserRouter
+
+    router = ParserRouter()
+    chunker = StructuralChunker()
+
+    pdf_doc, _ = await router.parse_document(
+        sample_pdf_bytes, "report.pdf", "application/pdf"
+    )
+    pdf_chunks = chunker.chunk_document(pdf_doc)
+    assert len(pdf_chunks) >= 1
+    assert any("Institutional Architecture Report" in c.text for c in pdf_chunks)
+    assert all(c.page_numbers == [1] for c in pdf_chunks)
+    assert any(len(c.bounding_boxes) >= 1 for c in pdf_chunks)
+    for chunk in pdf_chunks:
+        for box in chunk.bounding_boxes:
+            assert 0.0 <= box.l <= box.r <= 1.0
+            assert 0.0 <= box.t <= box.b <= 1.0
+
+    docx_doc, _ = await router.parse_document(
+        sample_docx_bytes,
+        "summary.docx",
+        (
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+    )
+    docx_chunks = chunker.chunk_document(docx_doc)
+    assert len(docx_chunks) >= 2
+    assert any(
+        c.section_path == ["Financial Summary 2026"]
+        and "Revenue increased by 15%" in c.text
+        for c in docx_chunks
+    )
+    assert any(
+        c.element_types == ["table"] and "$1,500,000" in c.text
+        for c in docx_chunks
+    )
+
+    xlsx_doc, _ = await router.parse_document(
+        sample_xlsx_bytes,
+        "metrics.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    xlsx_chunks = chunker.chunk_document(xlsx_doc)
+    assert len(xlsx_chunks) >= 1
+    assert xlsx_chunks[0].element_types == ["table"]
+    assert "Ingestion Throughput" in xlsx_chunks[0].text
+    assert xlsx_chunks[0].page_numbers == [1]
+
+
+def test_provenance_fallback_page_extents_and_deduplication() -> None:
+    """Raw boxes without page metadata normalize via page extents and dedupe."""
+    elements = [
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=1,
+            text="Oversized raw coordinates without page metadata.",
+            page_number=1,
+            bounding_box=(100.0, 100.0, 1000.0, 1000.0),
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=2,
+            text="Duplicate raw coordinates should be deduplicated.",
+            page_number=1,
+            bounding_box=(100.0, 100.0, 1000.0, 1000.0),
+        ),
+    ]
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=1000, max_chars=2000)
+    )
+    chunks = chunker.chunk_document(_make_doc(elements))
+
+    assert len(chunks) == 1
+    assert len(chunks[0].bounding_boxes) == 1
+    box = chunks[0].bounding_boxes[0]
+    assert box.page == 1
+    assert pytest.approx((box.l, box.t, box.r, box.b)) == (0.1, 0.1, 1.0, 1.0)

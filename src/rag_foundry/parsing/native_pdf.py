@@ -41,13 +41,19 @@ class NativePDFParserAdapter(ParserProvider):
         for page_idx in range(len(doc)):
             page = doc[page_idx]
             page_num = page_idx + 1
+            page_width = float(page.rect.width) if page.rect.width > 0 else 1.0
+            page_height = (
+                float(page.rect.height) if page.rect.height > 0 else 1.0
+            )
             blocks = page.get_text("blocks")
 
             for b in blocks:
                 # b tuple: (x0, y0, x1, y1, text, block_no, block_type)
                 if len(b) >= 5:
-                    x0, y0 = float(b[0]), float(b[1])
-                    x1, y1 = float(b[2]), float(b[3])
+                    x0 = min(1.0, max(0.0, float(b[0]) / page_width))
+                    y0 = min(1.0, max(0.0, float(b[1]) / page_height))
+                    x1 = min(1.0, max(x0, float(b[2]) / page_width))
+                    y1 = min(1.0, max(y0, float(b[3]) / page_height))
                     text_str = str(b[4]).strip()
                     if not text_str:
                         continue
@@ -68,6 +74,10 @@ class NativePDFParserAdapter(ParserProvider):
                         markdown=text_str,
                         page_number=page_num,
                         bounding_box=bbox,
+                        metadata={
+                            "page_width": page_width,
+                            "page_height": page_height,
+                        },
                     )
                     elements.append(elem)
                     full_text_blocks.append(text_str)
