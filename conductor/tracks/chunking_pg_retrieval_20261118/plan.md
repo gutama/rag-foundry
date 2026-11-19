@@ -6,10 +6,10 @@
   - [x] Write failing unit tests in `tests/test_structural_chunker.py` for `ChunkingConfig`, `DocumentChunk`, deterministic SHA-256 checksums, `chunker_name`/`chunker_version`, and heading stack (`section_path`) transitions across heading levels and `parent_element_id`
   - [x] Implement `src/rag_foundry/chunking/__init__.py`, `src/rag_foundry/chunking/models.py`, and heading/section buffer management in `src/rag_foundry/chunking/structural.py` to pass tests
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Implement atomic tables/figures, oversized table row splitting, and prose overlap
-  - [ ] Write failing unit tests covering atomic `table` and `figure` chunks, oversized table splitting on row boundaries with repeated headers, configurable `target_chars`/`max_chars`/`overlap_chars` for prose and list items, and sentence/word-boundary splitting of oversized paragraphs
-  - [ ] Implement table/figure atomicity, header-repeating row splitting, and configurable prose packing/overlap in `src/rag_foundry/chunking/structural.py`
-  - [ ] Refactor and verify edge cases (empty elements, single long tokens, tables without markdown headers)
+- [x] Task: Implement atomic tables/figures, oversized table row splitting, and prose overlap 394d550
+  - [x] Write failing unit tests covering atomic `table` and `figure` chunks, oversized table splitting on row boundaries with repeated headers, configurable `target_chars`/`max_chars`/`overlap_chars` for prose and list items, and sentence/word-boundary splitting of oversized paragraphs
+  - [x] Implement table/figure atomicity, header-repeating row splitting, and configurable prose packing/overlap in `src/rag_foundry/chunking/structural.py`
+  - [x] Refactor and verify edge cases (empty elements, single long tokens, tables without markdown headers)
 - [ ] Task: Preserve page numbers, normalized bounding boxes, and parser fixture integration
   - [ ] Write failing tests verifying sorted unique 1-based `page_numbers`, conversion of element `(x0, y0, x1, y1)` tuples into validated `BoundingBox` objects, graceful handling of missing coordinates, and end-to-end parsing -> chunking across `sample_pdf_bytes`, `sample_docx_bytes`, and `sample_xlsx_bytes`
   - [ ] Implement provenance aggregation in `src/rag_foundry/chunking/structural.py` and confirm all chunker unit and fixture integration tests pass
