@@ -2,10 +2,10 @@
 
 ## Phase 1: Structure-Aware Hierarchical Chunker & Provenance Preservation
 
-- [ ] Task: Build chunking domain models and heading-hierarchy tracking
-  - [ ] Write failing unit tests in `tests/test_structural_chunker.py` for `ChunkingConfig`, `DocumentChunk`, deterministic SHA-256 checksums, `chunker_name`/`chunker_version`, and heading stack (`section_path`) transitions across heading levels and `parent_element_id`
-  - [ ] Implement `src/rag_foundry/chunking/__init__.py`, `src/rag_foundry/chunking/models.py`, and heading/section buffer management in `src/rag_foundry/chunking/structural.py` to pass tests
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Build chunking domain models and heading-hierarchy tracking 0e751a9
+  - [x] Write failing unit tests in `tests/test_structural_chunker.py` for `ChunkingConfig`, `DocumentChunk`, deterministic SHA-256 checksums, `chunker_name`/`chunker_version`, and heading stack (`section_path`) transitions across heading levels and `parent_element_id`
+  - [x] Implement `src/rag_foundry/chunking/__init__.py`, `src/rag_foundry/chunking/models.py`, and heading/section buffer management in `src/rag_foundry/chunking/structural.py` to pass tests
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Implement atomic tables/figures, oversized table row splitting, and prose overlap
   - [ ] Write failing unit tests covering atomic `table` and `figure` chunks, oversized table splitting on row boundaries with repeated headers, configurable `target_chars`/`max_chars`/`overlap_chars` for prose and list items, and sentence/word-boundary splitting of oversized paragraphs
   - [ ] Implement table/figure atomicity, header-repeating row splitting, and configurable prose packing/overlap in `src/rag_foundry/chunking/structural.py`
