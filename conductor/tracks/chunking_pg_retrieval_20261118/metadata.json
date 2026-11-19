@@ -1,0 +1,8 @@
+{
+  "id": "chunking_pg_retrieval_20261118",
+  "name": "Phase 5 Completion: Structural Chunking, PostgreSQL/pgvector/FTS Indexing & Ontology Query Expansion",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-11-18T18:58:00-08:00",
+  "updated_at": "2026-11-18T18:58:00-08:00"
+}
