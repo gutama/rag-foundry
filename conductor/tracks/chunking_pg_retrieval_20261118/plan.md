@@ -47,7 +47,7 @@
   - [x] Refactor and confirm all existing and new retrieval tests pass
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
-## Phase 4: Ingestion-to-Index Wiring, Optional Model Adapters & End-to-End Reproducibility
+## Phase 4: Ingestion-to-Index Wiring, Optional Model Adapters & End-to-End Reproducibility [checkpoint: 970518f]
 
 - [x] Task: Implement `IndexerService` and wire `IngestionPipeline` to chunking and DB indexing a49ef62
   - [x] Write failing tests in `tests/test_indexer_service.py` covering `IndexerService.index_document`, atomic chunk persistence with embeddings, bounding boxes, `security_domain`, and metadata, re-indexing/idempotency behavior, and `IngestionPipeline` end-to-end `ingest_and_index` flow
@@ -60,4 +60,4 @@
 - [x] Task: End-to-end Phase 5 exit-criteria integration & regression suite 970518f
   - [x] Write failing integration tests in `tests/test_phase5_end_to_end.py` validating all four Phase 5 exit criteria end-to-end (`IngestionPipeline` -> `IndexerService` -> `RetrievalPipeline` with DB-backed dense + lexical retrievers + unified semantic expansion): (1) zero unauthorized chunk entry across workspaces/domains, (2) identical reproducible ranking across repeated runs, (3) complete semantic expansion provenance trace, and (4) zero exact-term top-1 regression when semantic expansion is enabled
   - [x] Ensure deterministic tie-breaking across `ReciprocalRankFusion`, `RerankerService`, and DB retrievers, and verify the full `pytest` suite and coverage gates pass
-- [~] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
