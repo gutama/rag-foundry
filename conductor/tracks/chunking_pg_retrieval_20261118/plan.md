@@ -10,9 +10,9 @@
   - [x] Write failing unit tests covering atomic `table` and `figure` chunks, oversized table splitting on row boundaries with repeated headers, configurable `target_chars`/`max_chars`/`overlap_chars` for prose and list items, and sentence/word-boundary splitting of oversized paragraphs
   - [x] Implement table/figure atomicity, header-repeating row splitting, and configurable prose packing/overlap in `src/rag_foundry/chunking/structural.py`
   - [x] Refactor and verify edge cases (empty elements, single long tokens, tables without markdown headers)
-- [ ] Task: Preserve page numbers, normalized bounding boxes, and parser fixture integration
-  - [ ] Write failing tests verifying sorted unique 1-based `page_numbers`, conversion of element `(x0, y0, x1, y1)` tuples into validated `BoundingBox` objects, graceful handling of missing coordinates, and end-to-end parsing -> chunking across `sample_pdf_bytes`, `sample_docx_bytes`, and `sample_xlsx_bytes`
-  - [ ] Implement provenance aggregation in `src/rag_foundry/chunking/structural.py` and confirm all chunker unit and fixture integration tests pass
+- [x] Task: Preserve page numbers, normalized bounding boxes, and parser fixture integration 6992399
+  - [x] Write failing tests verifying sorted unique 1-based `page_numbers`, conversion of element `(x0, y0, x1, y1)` tuples into validated `BoundingBox` objects, graceful handling of missing coordinates, and end-to-end parsing -> chunking across `sample_pdf_bytes`, `sample_docx_bytes`, and `sample_xlsx_bytes`
+  - [x] Implement provenance aggregation in `src/rag_foundry/chunking/structural.py` and confirm all chunker unit and fixture integration tests pass
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: PostgreSQL/pgvector & FTS Schema, Migration & Compact-Profile Retrievers
