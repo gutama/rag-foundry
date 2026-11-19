@@ -41,10 +41,10 @@
   - [x] Write failing tests in `tests/test_entity_query_expansion.py` verifying expansion over active `EntityRecord` preferred labels and aliases, resolution of merged entity aliases via `merged_into_id` redirects, strict workspace/`semantic_profile_id` isolation, caller `SecurityContext` authorization before loading vocabulary, and strict non-use of unapproved extracted `SemanticAssertion` records
   - [x] Implement authorized entity expansion in `src/rag_foundry/retrieval/ontology_expansion.py`
   - [x] Refactor and verify zero cross-workspace vocabulary leakage
-- [ ] Task: Build unified `SemanticQueryExpansionService` with exact-term protection and pipeline integration
-  - [ ] Write failing tests in `tests/test_semantic_expansion_pipeline.py` verifying composition of SKOS taxonomy + ontology + entity expanders, full provenance output in `RetrievalResult.execution_metrics["expansion_trace"]`, backward compatibility with `TaxonomyExpansionBridge`, terminology recall gains on alias/hierarchy queries, and exact-term/identifier top-1 non-regression
-  - [ ] Implement `SemanticQueryExpansionService` in `src/rag_foundry/retrieval/expansion.py` and integrate exact-term preservation and unified expansion into `RetrievalPipeline` and `LexicalRetriever` / `PostgresLexicalRetriever`
-  - [ ] Refactor and confirm all existing and new retrieval tests pass
+- [x] Task: Build unified `SemanticQueryExpansionService` with exact-term protection and pipeline integration a862749
+  - [x] Write failing tests in `tests/test_semantic_expansion_pipeline.py` verifying composition of SKOS taxonomy + ontology + entity expanders, full provenance output in `RetrievalResult.execution_metrics["expansion_trace"]`, backward compatibility with `TaxonomyExpansionBridge`, terminology recall gains on alias/hierarchy queries, and exact-term/identifier top-1 non-regression
+  - [x] Implement `SemanticQueryExpansionService` in `src/rag_foundry/retrieval/expansion.py` and integrate exact-term preservation and unified expansion into `RetrievalPipeline` and `LexicalRetriever` / `PostgresLexicalRetriever`
+  - [x] Refactor and confirm all existing and new retrieval tests pass
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Ingestion-to-Index Wiring, Optional Model Adapters & End-to-End Reproducibility
