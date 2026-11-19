@@ -138,8 +138,8 @@ class DenseVectorRetriever:
                 )
             )
 
-        # Sort descending by similarity score
-        scored_candidates.sort(key=lambda x: x.score, reverse=True)
+        # Sort descending by score with deterministic chunk_id tie-break
+        scored_candidates.sort(key=lambda x: (-x.score, str(x.chunk_id)))
 
         # Truncate to top_k and assign dense_rank
         top_candidates = scored_candidates[: query.top_k]
