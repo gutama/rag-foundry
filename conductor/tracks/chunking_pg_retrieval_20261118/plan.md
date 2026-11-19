@@ -33,10 +33,10 @@
 
 ## Phase 3: Governed Ontology & Entity Query Expansion (ADR-0016)
 
-- [ ] Task: Build `ExpansionPolicy`, provenance trace models, and approved-ontology expansion
-  - [ ] Write failing tests in `tests/test_ontology_query_expansion.py` covering `ExpansionPolicy` bounds (`max_depth`, relation weights, `max_expanded_terms`), matching active classes by `preferred_labels`, traversing `parent_class_uris`/subclasses and active property labels/inverses, strictly ignoring `draft`/`deprecated` releases and terms, and recording semantic source URIs and release IDs in traces
-  - [ ] Implement `ExpansionPolicy`, `SemanticExpansionTerm`, `SemanticExpansionTrace`, and `OntologyQueryExpander` in `src/rag_foundry/retrieval/ontology_expansion.py`
-  - [ ] Refactor and verify deterministic ordering, deduplication, and >80% coverage
+- [x] Task: Build `ExpansionPolicy`, provenance trace models, and approved-ontology expansion 2b61a98
+  - [x] Write failing tests in `tests/test_ontology_query_expansion.py` covering `ExpansionPolicy` bounds (`max_depth`, relation weights, `max_expanded_terms`), matching active classes by `preferred_labels`, traversing `parent_class_uris`/subclasses and active property labels/inverses, strictly ignoring `draft`/`deprecated` releases and terms, and recording semantic source URIs and release IDs in traces
+  - [x] Implement `ExpansionPolicy`, `SemanticExpansionTerm`, `SemanticExpansionTrace`, and `OntologyQueryExpander` in `src/rag_foundry/retrieval/ontology_expansion.py`
+  - [x] Refactor and verify deterministic ordering, deduplication, and >80% coverage
 - [ ] Task: Add workspace-scoped entity alias/redirect expansion with caller authorization
   - [ ] Write failing tests in `tests/test_entity_query_expansion.py` verifying expansion over active `EntityRecord` preferred labels and aliases, resolution of merged entity aliases via `merged_into_id` redirects, strict workspace/`semantic_profile_id` isolation, caller `SecurityContext` authorization before loading vocabulary, and strict non-use of unapproved extracted `SemanticAssertion` records
   - [ ] Implement authorized entity expansion in `src/rag_foundry/retrieval/ontology_expansion.py`
