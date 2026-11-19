@@ -31,7 +31,7 @@
   - [x] Refactor and verify >80% coverage
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
-## Phase 3: Governed Ontology & Entity Query Expansion (ADR-0016)
+## Phase 3: Governed Ontology & Entity Query Expansion (ADR-0016) [checkpoint: a862749]
 
 - [x] Task: Build `ExpansionPolicy`, provenance trace models, and approved-ontology expansion 2b61a98
   - [x] Write failing tests in `tests/test_ontology_query_expansion.py` covering `ExpansionPolicy` bounds (`max_depth`, relation weights, `max_expanded_terms`), matching active classes by `preferred_labels`, traversing `parent_class_uris`/subclasses and active property labels/inverses, strictly ignoring `draft`/`deprecated` releases and terms, and recording semantic source URIs and release IDs in traces
@@ -45,7 +45,7 @@
   - [x] Write failing tests in `tests/test_semantic_expansion_pipeline.py` verifying composition of SKOS taxonomy + ontology + entity expanders, full provenance output in `RetrievalResult.execution_metrics["expansion_trace"]`, backward compatibility with `TaxonomyExpansionBridge`, terminology recall gains on alias/hierarchy queries, and exact-term/identifier top-1 non-regression
   - [x] Implement `SemanticQueryExpansionService` in `src/rag_foundry/retrieval/expansion.py` and integrate exact-term preservation and unified expansion into `RetrievalPipeline` and `LexicalRetriever` / `PostgresLexicalRetriever`
   - [x] Refactor and confirm all existing and new retrieval tests pass
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Ingestion-to-Index Wiring, Optional Model Adapters & End-to-End Reproducibility
 
