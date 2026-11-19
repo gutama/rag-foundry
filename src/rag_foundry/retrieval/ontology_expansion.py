@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from rag_foundry.db.models import (
+    EntityRecord,
     OntologyClassRecord,
     OntologyPropertyRecord,
     OntologyReleaseRecord,
@@ -18,6 +19,10 @@ from rag_foundry.db.models import (
 from rag_foundry.retrieval.postgres_filters import (
     SessionOrFactory,
     acquire_session,
+)
+from rag_foundry.retrieval.security import (
+    SecurityAuthorizationError,
+    SecurityContext,
 )
 
 DEFAULT_ENABLED_RELATIONS: Tuple[str, ...] = (
@@ -653,3 +658,320 @@ class OntologyQueryExpander:
                 queue.append((neighbor_uri, next_depth))
 
         return collected
+
+
+def select_alias_labels(
+    alias_map: Dict[str, List[str]], languages: Optional[List[str]]
+) -> List[str]:
+    """Extract deterministically ordered non-empty aliases from a language map.
+
+    Args:
+        alias_map: Mapping of language tag to list of alias strings.
+        languages: Optional allowed language tags.
+
+    Returns:
+        Sorted-language list of cleaned non-empty alias strings.
+    """
+    allowed = set(languages) if languages is not None else None
+    aliases: List[str] = []
+    for lang in sorted(alias_map.keys()):
+        if allowed is not None and lang not in allowed:
+            continue
+        for val in alias_map[lang] or []:
+            cleaned = (val or "").strip()
+            if cleaned:
+                aliases.append(cleaned)
+    return aliases
+
+
+class EntityQueryExpander:
+    """Authorized, workspace-scoped entity alias and redirect query expander.
+
+    Expands active ``EntityRecord`` preferred labels/aliases and resolves
+    merged entity aliases via ``merged_into_id`` chains to their active
+    canonical survivor. Strictly authorizes caller ``SecurityContext`` before
+    loading any entity vocabulary and never reads unapproved extracted
+    ``AssertionRecord`` rows.
+    """
+
+    _MAX_REDIRECT_HOPS = 10
+
+    def __init__(
+        self,
+        session_or_factory: SessionOrFactory,
+        policy: Optional[ExpansionPolicy] = None,
+    ) -> None:
+        """Initialize EntityQueryExpander.
+
+        Args:
+            session_or_factory: AsyncSession or async_sessionmaker factory.
+            policy: Optional default ExpansionPolicy.
+        """
+        self.session_or_factory = session_or_factory
+        self.policy = policy or ExpansionPolicy()
+
+    @staticmethod
+    def _authorize_caller(
+        workspace_id: uuid.UUID,
+        security_context: Optional[SecurityContext],
+    ) -> Optional[str]:
+        """Verify workspace and domain permissions before loading entities.
+
+        Args:
+            workspace_id: Target workspace UUID.
+            security_context: Optional caller SecurityContext.
+
+        Returns:
+            None if permitted, or a fail-closed reason string when the caller
+            has zero allowed security domains.
+
+        Raises:
+            SecurityAuthorizationError: If caller lacks workspace access.
+        """
+        if security_context is None:
+            return None
+        if not security_context.can_access_workspace(workspace_id):
+            raise SecurityAuthorizationError(
+                f"Unauthorized workspace access: user "
+                f"'{security_context.user_id}' is not authorized for "
+                f"workspace '{workspace_id}'."
+            )
+        if not security_context.allowed_security_domains:
+            return "no_allowed_security_domains"
+        return None
+
+    async def expand_query(
+        self,
+        query_text: str,
+        workspace_id: uuid.UUID,
+        *,
+        semantic_profile_id: Optional[uuid.UUID] = None,
+        security_context: Optional[SecurityContext] = None,
+        policy: Optional[ExpansionPolicy] = None,
+    ) -> SemanticExpansionTrace:
+        """Expand a query using authorized workspace entity aliases/redirects.
+
+        Args:
+            query_text: Original search query string.
+            workspace_id: Target workspace UUID for tenant isolation.
+            semantic_profile_id: Optional semantic profile UUID pin.
+            security_context: Caller SecurityContext checked before DB access.
+            policy: Optional per-call ExpansionPolicy override.
+
+        Returns:
+            SemanticExpansionTrace with entity provenance metadata.
+
+        Raises:
+            SecurityAuthorizationError: If caller is unauthorized for workspace.
+        """
+        start = time.perf_counter()
+        active_policy = policy or self.policy
+        candidates, reason = await self.collect_entity_candidates(
+            query_text=query_text,
+            workspace_id=workspace_id,
+            semantic_profile_id=semantic_profile_id,
+            security_context=security_context,
+            policy=active_policy,
+        )
+        terms = finalize_expansion_terms(
+            query_text, candidates, active_policy
+        )
+        expanded_query = format_expanded_lexical_query(query_text, terms)
+        duration_ms = round((time.perf_counter() - start) * 1000.0, 3)
+
+        return SemanticExpansionTrace(
+            expansion_applied=len(terms) > 1,
+            original_query=query_text,
+            expanded_query=expanded_query,
+            expanded_term_count=len(terms),
+            terms=terms,
+            sources_consulted=[] if reason else ["entity"],
+            release_ids=[],
+            duration_ms=duration_ms,
+            reason=reason,
+        )
+
+    async def collect_entity_candidates(
+        self,
+        query_text: str,
+        workspace_id: uuid.UUID,
+        *,
+        semantic_profile_id: Optional[uuid.UUID] = None,
+        security_context: Optional[SecurityContext] = None,
+        policy: Optional[ExpansionPolicy] = None,
+    ) -> Tuple[List[SemanticExpansionTerm], Optional[str]]:
+        """Collect candidate terms from active and merged workspace entities.
+
+        Args:
+            query_text: Original search query text.
+            workspace_id: Target workspace UUID.
+            semantic_profile_id: Optional semantic profile UUID filter.
+            security_context: Caller SecurityContext verified before DB read.
+            policy: Optional ExpansionPolicy override.
+
+        Returns:
+            Tuple of (candidate terms, optional fail-closed reason).
+
+        Raises:
+            SecurityAuthorizationError: If caller cannot access workspace.
+        """
+        deny_reason = self._authorize_caller(workspace_id, security_context)
+        if deny_reason is not None:
+            return [], deny_reason
+
+        query_lower = query_text.strip().lower()
+        if not query_lower:
+            return [], None
+
+        active_policy = policy or self.policy
+        enabled = set(active_policy.enabled_relations)
+
+        stmt = (
+            select(EntityRecord)
+            .where(
+                EntityRecord.workspace_id == workspace_id,
+                EntityRecord.status.in_(["active", "merged"]),
+            )
+            .order_by(EntityRecord.canonical_uri.asc(), EntityRecord.id.asc())
+        )
+        if semantic_profile_id is not None:
+            stmt = stmt.where(
+                EntityRecord.semantic_profile_id == semantic_profile_id
+            )
+
+        async with acquire_session(self.session_or_factory) as (session, _):
+            result = await session.execute(stmt)
+            records = list(result.scalars().all())
+
+        by_id: Dict[uuid.UUID, EntityRecord] = {r.id: r for r in records}
+        candidates: List[SemanticExpansionTerm] = []
+
+        for record in records:
+            all_pref = select_labels(record.preferred_labels or {}, None)
+            all_alias = select_alias_labels(record.aliases or {}, None)
+            matched = [
+                lbl
+                for lbl in (all_pref + all_alias)
+                if label_matches_query(lbl, query_lower)
+            ]
+            if not matched:
+                continue
+            matched_lower = {lbl.lower() for lbl in matched}
+
+            if record.status == "active":
+                candidates.extend(
+                    self._emit_active_entity_terms(
+                        record, matched_lower, active_policy, enabled
+                    )
+                )
+            elif record.status == "merged" and "entity_redirect" in enabled:
+                survivor = self._resolve_active_survivor(record, by_id)
+                if survivor is not None:
+                    candidates.extend(
+                        self._emit_redirect_terms(
+                            survivor, matched_lower, active_policy
+                        )
+                    )
+
+        return candidates, None
+
+    @staticmethod
+    def _emit_active_entity_terms(
+        entity: EntityRecord,
+        matched_lower: Set[str],
+        policy: ExpansionPolicy,
+        enabled: Set[str],
+    ) -> List[SemanticExpansionTerm]:
+        """Emit preferred labels and aliases for a matched active entity."""
+        terms: List[SemanticExpansionTerm] = []
+        if "preferred_label" in enabled:
+            for lbl in select_labels(
+                entity.preferred_labels or {}, policy.languages
+            ):
+                if lbl.lower() not in matched_lower:
+                    terms.append(
+                        SemanticExpansionTerm(
+                            term=lbl,
+                            weight=policy.weight_for(
+                                "preferred_label", hop_depth=0
+                            ),
+                            relationship="preferred_label",
+                            source_type="entity",
+                            source_uri=entity.canonical_uri,
+                            entity_id=entity.id,
+                            hop_depth=0,
+                        )
+                    )
+        if "entity_alias" in enabled:
+            for alias in select_alias_labels(
+                entity.aliases or {}, policy.languages
+            ):
+                if alias.lower() not in matched_lower:
+                    terms.append(
+                        SemanticExpansionTerm(
+                            term=alias,
+                            weight=policy.weight_for(
+                                "entity_alias", hop_depth=0
+                            ),
+                            relationship="entity_alias",
+                            source_type="entity",
+                            source_uri=entity.canonical_uri,
+                            entity_id=entity.id,
+                            hop_depth=0,
+                        )
+                    )
+        return terms
+
+    @staticmethod
+    def _emit_redirect_terms(
+        survivor: EntityRecord,
+        matched_lower: Set[str],
+        policy: ExpansionPolicy,
+    ) -> List[SemanticExpansionTerm]:
+        """Emit active survivor labels and aliases for a merged redirect."""
+        terms: List[SemanticExpansionTerm] = []
+        redirect_weight = policy.weight_for("entity_redirect", hop_depth=1)
+        pref_labels = select_labels(
+            survivor.preferred_labels or {}, policy.languages
+        )
+        alias_labels = select_alias_labels(
+            survivor.aliases or {}, policy.languages
+        )
+        for lbl in pref_labels + alias_labels:
+            if lbl.lower() not in matched_lower:
+                terms.append(
+                    SemanticExpansionTerm(
+                        term=lbl,
+                        weight=redirect_weight,
+                        relationship="entity_redirect",
+                        source_type="entity",
+                        source_uri=survivor.canonical_uri,
+                        entity_id=survivor.id,
+                        hop_depth=1,
+                    )
+                )
+        return terms
+
+    @classmethod
+    def _resolve_active_survivor(
+        cls,
+        entity: EntityRecord,
+        by_id: Dict[uuid.UUID, EntityRecord],
+    ) -> Optional[EntityRecord]:
+        """Follow merged_into_id links safely to an active survivor entity."""
+        visited: Set[uuid.UUID] = {entity.id}
+        current = entity
+        for _ in range(cls._MAX_REDIRECT_HOPS):
+            target_id = current.merged_into_id
+            if target_id is None or target_id in visited:
+                return None
+            visited.add(target_id)
+            target = by_id.get(target_id)
+            if target is None:
+                return None
+            if target.status == "active":
+                return target
+            if target.status != "merged":
+                return None
+            current = target
+        return None
