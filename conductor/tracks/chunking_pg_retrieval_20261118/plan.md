@@ -15,7 +15,7 @@
   - [x] Implement provenance aggregation in `src/rag_foundry/chunking/structural.py` and confirm all chunker unit and fixture integration tests pass
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
-## Phase 2: PostgreSQL/pgvector & FTS Schema, Migration & Compact-Profile Retrievers
+## Phase 2: PostgreSQL/pgvector & FTS Schema, Migration & Compact-Profile Retrievers [checkpoint: 5cca335]
 
 - [x] Task: Add dialect-aware pgvector/tsvector types, extend Chunk ORM model, and write Alembic migration 76b1bef
   - [x] Write failing tests in `tests/test_chunk_schema.py` verifying `Chunk` new columns (`chunk_index`, `bounding_boxes`, `security_domain`, `chunk_metadata`, `embedding`, `embedding_model`, `embedding_dim`, `search_vector`), PostgreSQL DDL compilation (`vector(N)`, `TSVECTOR`, HNSW/GIN/ACL indexes), SQLite round-trip persistence, and Alembic upgrade/downgrade from revision `e2b84f6c9a31`
@@ -29,7 +29,7 @@
   - [x] Write failing tests in `tests/test_postgres_lexical_retriever.py` covering `LexicalRetrieverProtocol` conformance, phrase and token search, workspace/domain/document/metadata pre-retrieval ACL filters, fail-closed empty allowed domains, deterministic tie-breaking, SQLite lexical scoring fallback, and PostgreSQL `websearch_to_tsquery`/`ts_rank_cd` SQL compilation with `WHERE` predicates pushed before ranking
   - [x] Implement `PostgresLexicalRetriever` in `src/rag_foundry/retrieval/postgres_lexical.py` (ensuring existing `LexicalRetriever` satisfies the protocol)
   - [x] Refactor and verify >80% coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Governed Ontology & Entity Query Expansion (ADR-0016)
 
