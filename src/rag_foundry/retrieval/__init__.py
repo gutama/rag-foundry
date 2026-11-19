@@ -6,7 +6,9 @@ from rag_foundry.retrieval.dense import (
 )
 from rag_foundry.retrieval.embeddings import (
     EmbeddingService,
+    HttpEmbeddingService,
     MockDeterministicEmbeddingService,
+    SentenceTransformerEmbeddingService,
 )
 from rag_foundry.retrieval.evidence import (
     AbstentionEngine,
@@ -88,6 +90,7 @@ __all__ = [
     "GraphEvidence",
     "GraphRelation",
     "GraphRetrievalProvider",
+    "HttpEmbeddingService",
     "LexicalRecord",
     "LexicalRetriever",
     "LexicalRetrieverProtocol",
@@ -108,6 +111,7 @@ __all__ = [
     "SemanticExpansionTerm",
     "SemanticExpansionTrace",
     "SemanticQueryExpansionService",
+    "SentenceTransformerEmbeddingService",
     "TaxonomyExpansionBridge",
     "WorkspaceGuard",
 ]

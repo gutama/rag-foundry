@@ -26,6 +26,12 @@ dev = [
     "pytest-cov>=4.1.0",
     "aiosqlite>=0.20.0",
 ]
+ml = [
+    "sentence-transformers>=2.7.0",
+]
+pgvector = [
+    "pgvector>=0.3.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
