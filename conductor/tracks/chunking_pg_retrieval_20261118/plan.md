@@ -17,10 +17,10 @@
 
 ## Phase 2: PostgreSQL/pgvector & FTS Schema, Migration & Compact-Profile Retrievers
 
-- [ ] Task: Add dialect-aware pgvector/tsvector types, extend Chunk ORM model, and write Alembic migration
-  - [ ] Write failing tests in `tests/test_chunk_schema.py` verifying `Chunk` new columns (`chunk_index`, `bounding_boxes`, `security_domain`, `chunk_metadata`, `embedding`, `embedding_model`, `embedding_dim`, `search_vector`), PostgreSQL DDL compilation (`vector(N)`, `TSVECTOR`, HNSW/GIN/ACL indexes), SQLite round-trip persistence, and Alembic upgrade/downgrade from revision `e2b84f6c9a31`
-  - [ ] Implement dialect-aware SQLAlchemy column types in `src/rag_foundry/db/types.py`, extend `Chunk` in `src/rag_foundry/db/models.py`, and add Alembic migration in `migrations/versions/`
-  - [ ] Run tests and verify clean Alembic upgrade/downgrade and >80% coverage
+- [x] Task: Add dialect-aware pgvector/tsvector types, extend Chunk ORM model, and write Alembic migration 76b1bef
+  - [x] Write failing tests in `tests/test_chunk_schema.py` verifying `Chunk` new columns (`chunk_index`, `bounding_boxes`, `security_domain`, `chunk_metadata`, `embedding`, `embedding_model`, `embedding_dim`, `search_vector`), PostgreSQL DDL compilation (`vector(N)`, `TSVECTOR`, HNSW/GIN/ACL indexes), SQLite round-trip persistence, and Alembic upgrade/downgrade from revision `e2b84f6c9a31`
+  - [x] Implement dialect-aware SQLAlchemy column types in `src/rag_foundry/db/types.py`, extend `Chunk` in `src/rag_foundry/db/models.py`, and add Alembic migration in `migrations/versions/`
+  - [x] Run tests and verify clean Alembic upgrade/downgrade and >80% coverage
 - [ ] Task: Implement retriever protocols and compact-profile `PostgresDenseRetriever`
   - [ ] Write failing tests in `tests/test_postgres_dense_retriever.py` covering `DenseRetrieverProtocol` conformance, workspace isolation, `security_domain` pre-retrieval filtering, fail-closed empty allowed domains, `document_ids` and `metadata_filters`, deterministic tie-breaking by `chunk_id`, cosine similarity scoring on SQLite, and PostgreSQL `<=>` SQL compilation with `WHERE` predicates pushed before `ORDER BY`/`LIMIT`
   - [ ] Implement `src/rag_foundry/retrieval/protocols.py` and `PostgresDenseRetriever` in `src/rag_foundry/retrieval/postgres_dense.py` (ensuring existing `DenseVectorRetriever` satisfies the protocol)
