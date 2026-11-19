@@ -21,10 +21,10 @@
   - [x] Write failing tests in `tests/test_chunk_schema.py` verifying `Chunk` new columns (`chunk_index`, `bounding_boxes`, `security_domain`, `chunk_metadata`, `embedding`, `embedding_model`, `embedding_dim`, `search_vector`), PostgreSQL DDL compilation (`vector(N)`, `TSVECTOR`, HNSW/GIN/ACL indexes), SQLite round-trip persistence, and Alembic upgrade/downgrade from revision `e2b84f6c9a31`
   - [x] Implement dialect-aware SQLAlchemy column types in `src/rag_foundry/db/types.py`, extend `Chunk` in `src/rag_foundry/db/models.py`, and add Alembic migration in `migrations/versions/`
   - [x] Run tests and verify clean Alembic upgrade/downgrade and >80% coverage
-- [ ] Task: Implement retriever protocols and compact-profile `PostgresDenseRetriever`
-  - [ ] Write failing tests in `tests/test_postgres_dense_retriever.py` covering `DenseRetrieverProtocol` conformance, workspace isolation, `security_domain` pre-retrieval filtering, fail-closed empty allowed domains, `document_ids` and `metadata_filters`, deterministic tie-breaking by `chunk_id`, cosine similarity scoring on SQLite, and PostgreSQL `<=>` SQL compilation with `WHERE` predicates pushed before `ORDER BY`/`LIMIT`
-  - [ ] Implement `src/rag_foundry/retrieval/protocols.py` and `PostgresDenseRetriever` in `src/rag_foundry/retrieval/postgres_dense.py` (ensuring existing `DenseVectorRetriever` satisfies the protocol)
-  - [ ] Refactor and verify >80% coverage
+- [x] Task: Implement retriever protocols and compact-profile `PostgresDenseRetriever` 2760502
+  - [x] Write failing tests in `tests/test_postgres_dense_retriever.py` covering `DenseRetrieverProtocol` conformance, workspace isolation, `security_domain` pre-retrieval filtering, fail-closed empty allowed domains, `document_ids` and `metadata_filters`, deterministic tie-breaking by `chunk_id`, cosine similarity scoring on SQLite, and PostgreSQL `<=>` SQL compilation with `WHERE` predicates pushed before `ORDER BY`/`LIMIT`
+  - [x] Implement `src/rag_foundry/retrieval/protocols.py` and `PostgresDenseRetriever` in `src/rag_foundry/retrieval/postgres_dense.py` (ensuring existing `DenseVectorRetriever` satisfies the protocol)
+  - [x] Refactor and verify >80% coverage
 - [ ] Task: Implement compact-profile `PostgresLexicalRetriever` with PostgreSQL FTS and ACL pushdown
   - [ ] Write failing tests in `tests/test_postgres_lexical_retriever.py` covering `LexicalRetrieverProtocol` conformance, phrase and token search, workspace/domain/document/metadata pre-retrieval ACL filters, fail-closed empty allowed domains, deterministic tie-breaking, SQLite lexical scoring fallback, and PostgreSQL `websearch_to_tsquery`/`ts_rank_cd` SQL compilation with `WHERE` predicates pushed before ranking
   - [ ] Implement `PostgresLexicalRetriever` in `src/rag_foundry/retrieval/postgres_lexical.py` (ensuring existing `LexicalRetriever` satisfies the protocol)
