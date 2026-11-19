@@ -37,10 +37,10 @@
   - [x] Write failing tests in `tests/test_ontology_query_expansion.py` covering `ExpansionPolicy` bounds (`max_depth`, relation weights, `max_expanded_terms`), matching active classes by `preferred_labels`, traversing `parent_class_uris`/subclasses and active property labels/inverses, strictly ignoring `draft`/`deprecated` releases and terms, and recording semantic source URIs and release IDs in traces
   - [x] Implement `ExpansionPolicy`, `SemanticExpansionTerm`, `SemanticExpansionTrace`, and `OntologyQueryExpander` in `src/rag_foundry/retrieval/ontology_expansion.py`
   - [x] Refactor and verify deterministic ordering, deduplication, and >80% coverage
-- [ ] Task: Add workspace-scoped entity alias/redirect expansion with caller authorization
-  - [ ] Write failing tests in `tests/test_entity_query_expansion.py` verifying expansion over active `EntityRecord` preferred labels and aliases, resolution of merged entity aliases via `merged_into_id` redirects, strict workspace/`semantic_profile_id` isolation, caller `SecurityContext` authorization before loading vocabulary, and strict non-use of unapproved extracted `SemanticAssertion` records
-  - [ ] Implement authorized entity expansion in `src/rag_foundry/retrieval/ontology_expansion.py`
-  - [ ] Refactor and verify zero cross-workspace vocabulary leakage
+- [x] Task: Add workspace-scoped entity alias/redirect expansion with caller authorization dbc68ba
+  - [x] Write failing tests in `tests/test_entity_query_expansion.py` verifying expansion over active `EntityRecord` preferred labels and aliases, resolution of merged entity aliases via `merged_into_id` redirects, strict workspace/`semantic_profile_id` isolation, caller `SecurityContext` authorization before loading vocabulary, and strict non-use of unapproved extracted `SemanticAssertion` records
+  - [x] Implement authorized entity expansion in `src/rag_foundry/retrieval/ontology_expansion.py`
+  - [x] Refactor and verify zero cross-workspace vocabulary leakage
 - [ ] Task: Build unified `SemanticQueryExpansionService` with exact-term protection and pipeline integration
   - [ ] Write failing tests in `tests/test_semantic_expansion_pipeline.py` verifying composition of SKOS taxonomy + ontology + entity expanders, full provenance output in `RetrievalResult.execution_metrics["expansion_trace"]`, backward compatibility with `TaxonomyExpansionBridge`, terminology recall gains on alias/hierarchy queries, and exact-term/identifier top-1 non-regression
   - [ ] Implement `SemanticQueryExpansionService` in `src/rag_foundry/retrieval/expansion.py` and integrate exact-term preservation and unified expansion into `RetrievalPipeline` and `LexicalRetriever` / `PostgresLexicalRetriever`
