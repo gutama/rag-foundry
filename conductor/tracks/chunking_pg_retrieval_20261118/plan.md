@@ -25,10 +25,10 @@
   - [x] Write failing tests in `tests/test_postgres_dense_retriever.py` covering `DenseRetrieverProtocol` conformance, workspace isolation, `security_domain` pre-retrieval filtering, fail-closed empty allowed domains, `document_ids` and `metadata_filters`, deterministic tie-breaking by `chunk_id`, cosine similarity scoring on SQLite, and PostgreSQL `<=>` SQL compilation with `WHERE` predicates pushed before `ORDER BY`/`LIMIT`
   - [x] Implement `src/rag_foundry/retrieval/protocols.py` and `PostgresDenseRetriever` in `src/rag_foundry/retrieval/postgres_dense.py` (ensuring existing `DenseVectorRetriever` satisfies the protocol)
   - [x] Refactor and verify >80% coverage
-- [ ] Task: Implement compact-profile `PostgresLexicalRetriever` with PostgreSQL FTS and ACL pushdown
-  - [ ] Write failing tests in `tests/test_postgres_lexical_retriever.py` covering `LexicalRetrieverProtocol` conformance, phrase and token search, workspace/domain/document/metadata pre-retrieval ACL filters, fail-closed empty allowed domains, deterministic tie-breaking, SQLite lexical scoring fallback, and PostgreSQL `websearch_to_tsquery`/`ts_rank_cd` SQL compilation with `WHERE` predicates pushed before ranking
-  - [ ] Implement `PostgresLexicalRetriever` in `src/rag_foundry/retrieval/postgres_lexical.py` (ensuring existing `LexicalRetriever` satisfies the protocol)
-  - [ ] Refactor and verify >80% coverage
+- [x] Task: Implement compact-profile `PostgresLexicalRetriever` with PostgreSQL FTS and ACL pushdown 5cca335
+  - [x] Write failing tests in `tests/test_postgres_lexical_retriever.py` covering `LexicalRetrieverProtocol` conformance, phrase and token search, workspace/domain/document/metadata pre-retrieval ACL filters, fail-closed empty allowed domains, deterministic tie-breaking, SQLite lexical scoring fallback, and PostgreSQL `websearch_to_tsquery`/`ts_rank_cd` SQL compilation with `WHERE` predicates pushed before ranking
+  - [x] Implement `PostgresLexicalRetriever` in `src/rag_foundry/retrieval/postgres_lexical.py` (ensuring existing `LexicalRetriever` satisfies the protocol)
+  - [x] Refactor and verify >80% coverage
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Governed Ontology & Entity Query Expansion (ADR-0016)
