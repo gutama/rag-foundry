@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import Select, and_, func, or_, select
 
 from rag_foundry.db.models import Chunk
+from rag_foundry.retrieval.lexical import score_expanded_lexical_text
 from rag_foundry.retrieval.models import RankedChunk, RetrievalQuery
 from rag_foundry.retrieval.postgres_filters import (
     SessionOrFactory,
@@ -125,7 +126,8 @@ class PostgresLexicalRetriever:
         Uses the indexed ``chunks.search_vector`` column via ``@@`` (falling
         back to ``to_tsvector`` only when ``search_vector`` is NULL) and ranks
         matches using ``ts_rank_cd`` with deterministic ``chunks.id ASC``
-        tie-breaking.
+        tie-breaking. When ``original_query_text`` differs from ``query_text``,
+        exact original-query rank is weighted dominantly over expanded recall.
 
         Args:
             query: RetrievalQuery specification.
@@ -152,7 +154,15 @@ class PostgresLexicalRetriever:
             ),
         )
         effective_vec = func.coalesce(Chunk.search_vector, fallback_vec)
-        rank_expr = func.ts_rank_cd(effective_vec, ts_query)
+        orig_text = (query.original_query_text or "").strip()
+        if orig_text and orig_text.lower() != query_text.lower():
+            orig_ts_query = func.websearch_to_tsquery(self.language, orig_text)
+            rank_expr = (
+                func.ts_rank_cd(effective_vec, orig_ts_query) * 4.0
+                + func.ts_rank_cd(effective_vec, ts_query) * 0.25
+            )
+        else:
+            rank_expr = func.ts_rank_cd(effective_vec, ts_query)
 
         return (
             select(Chunk, rank_expr.label("fts_rank"))
@@ -221,10 +231,20 @@ class PostgresLexicalRetriever:
         if conditions is None:
             return []
 
-        parsed_query = self._parse_query(query.query_text)
-        if not parsed_query["phrases"] and not parsed_query["terms"]:
+        use_expanded_scoring = bool(
+            query.original_query_text or query.expanded_term_weights
+        )
+        parsed_query = (
+            {} if use_expanded_scoring else self._parse_query(query.query_text)
+        )
+        if (
+            not use_expanded_scoring
+            and not parsed_query["phrases"]
+            and not parsed_query["terms"]
+        ):
             return []
 
+        orig_text = query.original_query_text or query.query_text
         stmt = select(Chunk).where(*conditions)
         result = await session.execute(stmt)
         chunks = result.scalars().all()
@@ -235,7 +255,12 @@ class PostgresLexicalRetriever:
                 chunk.chunk_metadata, query.filter.metadata_filters
             ):
                 continue
-            score = self._score_text(chunk.text, parsed_query)
+            if use_expanded_scoring:
+                score = score_expanded_lexical_text(
+                    chunk.text, orig_text, query.expanded_term_weights
+                )
+            else:
+                score = self._score_text(chunk.text, parsed_query)
             if score <= 0.0 or score < query.min_relevance_score:
                 continue
             scored.append((round(score, 4), chunk))

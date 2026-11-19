@@ -33,6 +33,10 @@ DEFAULT_ENABLED_RELATIONS: Tuple[str, ...] = (
     "ontology_child",
     "ontology_property",
     "ontology_inverse",
+    "skos_prefLabel",
+    "skos_altLabel",
+    "skos_broader",
+    "skos_narrower",
 )
 
 DEFAULT_RELATION_WEIGHTS: Dict[str, float] = {

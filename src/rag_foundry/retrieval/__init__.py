@@ -13,6 +13,7 @@ from rag_foundry.retrieval.evidence import (
     EvidenceAssembler,
 )
 from rag_foundry.retrieval.expansion import (
+    SemanticQueryExpansionService,
     TaxonomyExpansionBridge,
 )
 from rag_foundry.retrieval.fusion import (
@@ -38,8 +39,25 @@ from rag_foundry.retrieval.models import (
     RetrievalQuery,
     RetrievalResult,
 )
+from rag_foundry.retrieval.ontology_expansion import (
+    EntityQueryExpander,
+    ExpansionPolicy,
+    OntologyQueryExpander,
+    SemanticExpansionTerm,
+    SemanticExpansionTrace,
+)
 from rag_foundry.retrieval.pipeline import (
     RetrievalPipeline,
+)
+from rag_foundry.retrieval.postgres_dense import (
+    PostgresDenseRetriever,
+)
+from rag_foundry.retrieval.postgres_lexical import (
+    PostgresLexicalRetriever,
+)
+from rag_foundry.retrieval.protocols import (
+    DenseRetrieverProtocol,
+    LexicalRetrieverProtocol,
 )
 from rag_foundry.retrieval.reranking import (
     CrossEncoderReranker,
@@ -58,18 +76,25 @@ __all__ = [
     "BoundingBox",
     "ConformanceGraphProvider",
     "CrossEncoderReranker",
+    "DenseRetrieverProtocol",
     "DenseVectorRecord",
     "DenseVectorRetriever",
     "EmbeddingService",
+    "EntityQueryExpander",
     "EvidenceAssembler",
     "EvidenceItem",
+    "ExpansionPolicy",
     "GraphEntity",
     "GraphEvidence",
     "GraphRelation",
     "GraphRetrievalProvider",
     "LexicalRecord",
     "LexicalRetriever",
+    "LexicalRetrieverProtocol",
     "MockDeterministicEmbeddingService",
+    "OntologyQueryExpander",
+    "PostgresDenseRetriever",
+    "PostgresLexicalRetriever",
     "RankedChunk",
     "ReciprocalRankFusion",
     "RerankerService",
@@ -80,6 +105,9 @@ __all__ = [
     "ScoringReranker",
     "SecurityAuthorizationError",
     "SecurityContext",
+    "SemanticExpansionTerm",
+    "SemanticExpansionTrace",
+    "SemanticQueryExpansionService",
     "TaxonomyExpansionBridge",
     "WorkspaceGuard",
 ]

@@ -1,22 +1,28 @@
 """End-to-end governed hybrid and graph retrieval pipeline orchestrator (ADR-0016)."""
 
 import asyncio
+import inspect
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Union
 
-from rag_foundry.retrieval.dense import DenseVectorRetriever
 from rag_foundry.retrieval.evidence import AbstentionEngine, EvidenceAssembler
-from rag_foundry.retrieval.expansion import TaxonomyExpansionBridge
+from rag_foundry.retrieval.expansion import (
+    SemanticQueryExpansionService,
+    TaxonomyExpansionBridge,
+)
 from rag_foundry.retrieval.fusion import ReciprocalRankFusion
 from rag_foundry.retrieval.graph import (
     GraphEvidence,
     GraphRetrievalProvider,
 )
-from rag_foundry.retrieval.lexical import LexicalRetriever
 from rag_foundry.retrieval.models import (
     RankedChunk,
     RetrievalQuery,
     RetrievalResult,
+)
+from rag_foundry.retrieval.protocols import (
+    DenseRetrieverProtocol,
+    LexicalRetrieverProtocol,
 )
 from rag_foundry.retrieval.reranking import RerankerService, ScoringReranker
 from rag_foundry.retrieval.security import (
@@ -26,14 +32,16 @@ from rag_foundry.retrieval.security import (
 
 
 class RetrievalPipeline:
-    """Orchestrates governed hybrid search across lexical, dense, graph, and taxonomy planes."""
+    """Orchestrates governed hybrid search across retrieval and semantic planes."""
 
     def __init__(
         self,
-        dense_retriever: Optional[DenseVectorRetriever] = None,
-        lexical_retriever: Optional[LexicalRetriever] = None,
+        dense_retriever: Optional[DenseRetrieverProtocol] = None,
+        lexical_retriever: Optional[LexicalRetrieverProtocol] = None,
         graph_provider: Optional[GraphRetrievalProvider] = None,
-        expansion_bridge: Optional[TaxonomyExpansionBridge] = None,
+        expansion_bridge: Optional[
+            Union[TaxonomyExpansionBridge, SemanticQueryExpansionService]
+        ] = None,
         fusion_engine: Optional[ReciprocalRankFusion] = None,
         reranker: Optional[RerankerService] = None,
         evidence_assembler: Optional[EvidenceAssembler] = None,
@@ -69,15 +77,30 @@ class RetrievalPipeline:
 
         # Step 1: Authorization-Before-Retrieval Guard
         if security_context is not None:
-            query = self.guard.validate_and_sanitize_query(query, security_context)
+            query = self.guard.validate_and_sanitize_query(
+                query, security_context
+            )
 
-        # Step 2: SKOS Taxonomy Query Expansion
+        # Step 2: Governed Semantic / Taxonomy Query Expansion
         expansion_trace: Dict[str, Any] = {}
         lexical_query = query
-        if self.expansion_bridge and query.enable_expansion:
-            lexical_query, expansion_trace = self.expansion_bridge.expand_retrieval_query(
-                query
-            )
+        if self.expansion_bridge is not None and query.enable_expansion:
+            if isinstance(
+                self.expansion_bridge, SemanticQueryExpansionService
+            ):
+                lexical_query, expansion_trace = (
+                    await self.expansion_bridge.expand_retrieval_query(
+                        query, security_context=security_context
+                    )
+                )
+            else:
+                result_or_coro = self.expansion_bridge.expand_retrieval_query(
+                    query
+                )
+                if inspect.isawaitable(result_or_coro):
+                    lexical_query, expansion_trace = await result_or_coro
+                else:
+                    lexical_query, expansion_trace = result_or_coro
 
         # Step 3: Multi-modal Parallel Candidate Retrieval
         tasks = []
