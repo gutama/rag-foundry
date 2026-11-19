@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -20,6 +21,12 @@ from sqlalchemy.orm import (
     Mapped,
     mapped_column,
     relationship,
+)
+
+from rag_foundry.db.types import (
+    DEFAULT_EMBEDDING_DIM,
+    TSVectorType,
+    VectorType,
 )
 
 
@@ -64,9 +71,27 @@ class Document(Base):
 
 
 class Chunk(Base):
-    """Chunk ORM model representing text chunks extracted from documents."""
+    """Chunk ORM model representing indexed chunks extracted from documents."""
 
     __tablename__ = "chunks"
+    __table_args__ = (
+        Index(
+            "ix_chunks_workspace_security_domain",
+            "workspace_id",
+            "security_domain",
+        ),
+        Index(
+            "ix_chunks_search_vector_gin",
+            "search_vector",
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, default=uuid.uuid4
@@ -79,9 +104,37 @@ class Chunk(Base):
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         nullable=False, index=True
     )
+    chunk_index: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     text: Mapped[str] = mapped_column(Text, nullable=False)
     section_path: Mapped[List[str]] = mapped_column(JSON, default=list)
     page_numbers: Mapped[List[int]] = mapped_column(JSON, default=list)
+    bounding_boxes: Mapped[List[Dict[str, Any]]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    security_domain: Mapped[str] = mapped_column(
+        String(128),
+        default="general",
+        server_default="general",
+        nullable=False,
+        index=True,
+    )
+    chunk_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    embedding: Mapped[Optional[List[float]]] = mapped_column(
+        VectorType(DEFAULT_EMBEDDING_DIM), nullable=True
+    )
+    embedding_model: Mapped[Optional[str]] = mapped_column(
+        String(256), nullable=True
+    )
+    embedding_dim: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True
+    )
+    search_vector: Mapped[Optional[str]] = mapped_column(
+        TSVectorType(), nullable=True
+    )
     checksum: Mapped[str] = mapped_column(String(64), nullable=False)
     chunker_name: Mapped[str] = mapped_column(String(128), nullable=False)
     chunker_version: Mapped[str] = mapped_column(String(64), nullable=False)
