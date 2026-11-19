@@ -12,8 +12,8 @@
   - **Testing & Linting:** Vitest with Testing Library (jsdom), `gts` (Google TypeScript style)
 - **Data & Storage Plane:**
   - PostgreSQL 16+ (Metadata, Governance, Taxonomies/Ontologies)
-  - `pgvector` (Vector Similarity Search)
-  - PostgreSQL Full-Text Search (Lexical Search)
+  - `pgvector` (Vector Similarity Search; dialect-aware SQLAlchemy type with optional `rag-foundry[pgvector]` extra and SQLite fallback)
+  - PostgreSQL Full-Text Search (Lexical Search via `TSVECTOR` / `websearch_to_tsquery` / `ts_rank_cd`, with SQLite fallback)
   - MinIO / Enterprise S3 (Object Storage for raw & canonical artifacts)
 - **Graph & Semantic Plane:**
   - LightRAG Service Adapter (Isolated Graph Retrieval)
@@ -24,7 +24,7 @@
 
 ## Models & AI Services
 - **LLM Serving:** Ollama / vLLM (Local / Air-gapped execution)
-- **Embeddings & Reranking:** sentence-transformers, HuggingFace Cross-Encoder Reranker
+- **Embeddings & Reranking:** Local HTTP embedding adapter (Ollama `/api/embed` and OpenAI-compatible `/v1/embeddings` via stdlib HTTP with no mandatory ML dependencies), plus lazy `sentence-transformers` and HuggingFace Cross-Encoder adapters via optional `rag-foundry[ml]` extra
 
 ## Observability & Evaluation
 - **Tracing & Monitoring:** Langfuse, OpenTelemetry
