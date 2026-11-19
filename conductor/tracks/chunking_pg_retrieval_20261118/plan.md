@@ -1,6 +1,6 @@
 # Implementation Plan: Phase 5 Completion — Structural Chunking, PostgreSQL/pgvector/FTS Indexing & Ontology Query Expansion
 
-## Phase 1: Structure-Aware Hierarchical Chunker & Provenance Preservation
+## Phase 1: Structure-Aware Hierarchical Chunker & Provenance Preservation [checkpoint: 6992399]
 
 - [x] Task: Build chunking domain models and heading-hierarchy tracking 0e751a9
   - [x] Write failing unit tests in `tests/test_structural_chunker.py` for `ChunkingConfig`, `DocumentChunk`, deterministic SHA-256 checksums, `chunker_name`/`chunker_version`, and heading stack (`section_path`) transitions across heading levels and `parent_element_id`
@@ -13,7 +13,7 @@
 - [x] Task: Preserve page numbers, normalized bounding boxes, and parser fixture integration 6992399
   - [x] Write failing tests verifying sorted unique 1-based `page_numbers`, conversion of element `(x0, y0, x1, y1)` tuples into validated `BoundingBox` objects, graceful handling of missing coordinates, and end-to-end parsing -> chunking across `sample_pdf_bytes`, `sample_docx_bytes`, and `sample_xlsx_bytes`
   - [x] Implement provenance aggregation in `src/rag_foundry/chunking/structural.py` and confirm all chunker unit and fixture integration tests pass
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: PostgreSQL/pgvector & FTS Schema, Migration & Compact-Profile Retrievers
 
