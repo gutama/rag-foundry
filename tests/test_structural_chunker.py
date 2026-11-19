@@ -270,3 +270,245 @@ def test_include_heading_in_text_and_sibling_parent_transitions() -> None:
     assert chunks[1].section_path == ["Policy", "Exceptions"]
     assert chunks[1].text.startswith("Policy > Exceptions\n\n")
 
+
+def test_tables_and_figures_emit_as_atomic_chunks_separate_from_prose() -> None:
+    """Tables and figures flush prose and stay intact under active section."""
+    elements = [
+        DocumentElement(
+            element_type="heading",
+            sequence_number=1,
+            text="Quarterly Metrics",
+            markdown="# Quarterly Metrics",
+            page_number=1,
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=2,
+            text="Introductory narrative before the table.",
+            page_number=1,
+        ),
+        DocumentElement(
+            element_type="table",
+            sequence_number=3,
+            text="Quarter | Revenue\nQ1 | $1.5M\nQ2 | $1.8M",
+            page_number=1,
+        ),
+        DocumentElement(
+            element_type="figure",
+            sequence_number=4,
+            text="Figure 1: Revenue trend across quarters.",
+            page_number=1,
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=5,
+            text="Closing commentary after the figure.",
+            page_number=1,
+        ),
+    ]
+    chunker = StructuralChunker(ChunkingConfig(target_chars=1000, max_chars=2000))
+    chunks = chunker.chunk_document(_make_doc(elements))
+
+    assert len(chunks) == 4
+    assert [c.element_types for c in chunks] == [
+        ["paragraph"],
+        ["table"],
+        ["figure"],
+        ["paragraph"],
+    ]
+    assert all(c.section_path == ["Quarterly Metrics"] for c in chunks)
+    assert "Quarter | Revenue" in chunks[1].text
+    assert chunks[2].text == "Figure 1: Revenue trend across quarters."
+
+
+def test_oversized_markdown_table_splits_by_rows_with_repeated_header() -> None:
+    """Oversized tables split on row boundaries repeating header + separator."""
+    table_text = "\n".join(
+        [
+            "| Metric | Value | Notes |",
+            "| --- | --- | --- |",
+            "| Latency P50 | 12ms | Compact profile |",
+            "| Latency P99 | 48ms | Compact profile |",
+            "| Recall@10 | 0.94 | Hybrid RRF |",
+            "| Precision@5 | 0.91 | Reranked |",
+        ]
+    )
+    elements = [
+        DocumentElement(
+            element_type="heading",
+            sequence_number=1,
+            text="Benchmarks",
+            markdown="# Benchmarks",
+            page_number=2,
+        ),
+        DocumentElement(
+            element_type="table",
+            sequence_number=2,
+            text=table_text,
+            page_number=2,
+        ),
+    ]
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=120, max_chars=150, overlap_chars=20)
+    )
+    chunks = chunker.chunk_document(_make_doc(elements))
+
+    assert len(chunks) >= 2
+    for idx, chunk in enumerate(chunks, start=1):
+        lines = chunk.text.splitlines()
+        assert lines[0] == "| Metric | Value | Notes |"
+        assert lines[1] == "| --- | --- | --- |"
+        assert len(lines) >= 3
+        assert len(chunk.text) <= 150
+        assert chunk.section_path == ["Benchmarks"]
+        assert chunk.element_types == ["table"]
+        assert chunk.metadata["table_part"] == idx
+        assert chunk.metadata["table_total_parts"] == len(chunks)
+
+    combined_data = "\n".join(chunks_i.text for chunks_i in chunks)
+    assert "Latency P50" in combined_data
+    assert "Precision@5" in combined_data
+
+
+def test_oversized_sheet_table_repeats_sheet_and_column_headers() -> None:
+    """XLSX sheet tables repeat both sheet heading and column header on splits."""
+    sheet_text = "\n".join(
+        [
+            "### Sheet: Q1 Data",
+            "Metric | Value",
+            "Ingestion Throughput | 500 docs/min",
+            "Dense Recall | 0.89 baseline",
+            "Lexical Recall | 0.85 baseline",
+            "Hybrid Fused | 0.95 baseline",
+        ]
+    )
+    elem = DocumentElement(
+        element_type="table",
+        sequence_number=1,
+        text=sheet_text,
+        page_number=1,
+    )
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=90, max_chars=110, overlap_chars=10)
+    )
+    chunks = chunker.chunk_document(_make_doc([elem]))
+
+    assert len(chunks) >= 2
+    for chunk in chunks:
+        lines = chunk.text.splitlines()
+        assert lines[0] == "### Sheet: Q1 Data"
+        assert lines[1] == "Metric | Value"
+
+
+def test_prose_packing_respects_target_chars_and_overlap() -> None:
+    """Consecutive prose/list items pack up to target_chars and carry overlap."""
+    elements = [
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=1,
+            text="Alpha governance rule checks workspace permissions before search.",
+            page_number=1,
+        ),
+        DocumentElement(
+            element_type="list_item",
+            sequence_number=2,
+            text="Beta metadata schemas validate every document attribute strictly.",
+            page_number=1,
+        ),
+        DocumentElement(
+            element_type="paragraph",
+            sequence_number=3,
+            text="Gamma semantic profiles pin approved taxonomy and ontology versions.",
+            page_number=2,
+        ),
+    ]
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=100, max_chars=150, overlap_chars=30)
+    )
+    chunks = chunker.chunk_document(_make_doc(elements))
+
+    assert len(chunks) >= 2
+    assert all(len(c.text) <= 150 for c in chunks)
+    # Overlap: tail phrase from chunk 0 should appear at start of chunk 1
+    tail_words = chunks[0].text.split()[-3:]
+    assert " ".join(tail_words) in chunks[1].text
+
+
+def test_oversized_single_paragraph_splits_on_sentence_and_word_boundaries() -> None:
+    """Single paragraph exceeding max_chars splits cleanly without mid-word cuts."""
+    paragraph = (
+        "First sentence explains authorization before retrieval in detail. "
+        "Second sentence covers reciprocal rank fusion across lexical and dense hits. "
+        "Third sentence specifies ontology query expansion provenance traces. "
+        "Fourth sentence guarantees exact term retrieval never regresses."
+    )
+    elem = DocumentElement(
+        element_type="paragraph",
+        sequence_number=1,
+        text=paragraph,
+        page_number=1,
+    )
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=90, max_chars=110, overlap_chars=25)
+    )
+    chunks = chunker.chunk_document(_make_doc([elem]))
+
+    assert len(chunks) >= 3
+    assert all(len(c.text) <= 110 for c in chunks)
+    # Verify words are not chopped mid-word
+    original_words = set(paragraph.split())
+    for chunk in chunks:
+        for word in chunk.text.split():
+            assert word in original_words
+
+
+def test_single_unbroken_token_exceeding_max_chars_makes_progress() -> None:
+    """A single token longer than max_chars hard-slices without infinite loop."""
+    long_token = "A" * 120
+    elem = DocumentElement(
+        element_type="paragraph",
+        sequence_number=1,
+        text=long_token,
+        page_number=1,
+    )
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=40, max_chars=50, overlap_chars=10)
+    )
+    chunks = chunker.chunk_document(_make_doc([elem]))
+
+    assert len(chunks) >= 3
+    assert all(len(c.text) <= 50 for c in chunks)
+    assert chunks[0].text == "A" * 50
+
+
+def test_single_line_table_and_long_sentence_word_split_edge_cases() -> None:
+    """Single-line tables stay intact; long punctuation-free sentences split by words."""
+    single_line_table = DocumentElement(
+        element_type="table",
+        sequence_number=1,
+        text="OnlyHeaderCol1 | OnlyHeaderCol2 | OnlyHeaderCol3 | OnlyHeaderCol4",
+        page_number=1,
+    )
+    long_sentence = DocumentElement(
+        element_type="paragraph",
+        sequence_number=2,
+        text=(
+            "governance metadata taxonomy ontology retrieval fusion reranking "
+            "citations provenance security workspace isolation verification"
+        ),
+        page_number=1,
+    )
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=45, max_chars=55, overlap_chars=0)
+    )
+    chunks = chunker.chunk_document(_make_doc([single_line_table, long_sentence]))
+
+    assert chunks[0].element_types == ["table"]
+    assert chunks[0].text == single_line_table.text
+    prose_chunks = chunks[1:]
+    assert len(prose_chunks) >= 3
+    assert all(len(c.text) <= 55 for c in prose_chunks)
+    assert " ".join(c.text for c in prose_chunks) == long_sentence.text
+
+
+

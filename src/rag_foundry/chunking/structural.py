@@ -3,7 +3,7 @@
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from rag_foundry.chunking.models import (
     ChunkingConfig,
@@ -13,6 +13,8 @@ from rag_foundry.chunking.models import (
 from rag_foundry.parsing.models import CanonicalDocument, DocumentElement
 
 _MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+")
+_TABLE_SEPARATOR_RE = re.compile(r"^\|?[\s:-]+(?:\|[\s:-]+)*\|?$")
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
 
 @dataclass
@@ -69,6 +71,12 @@ class StructuralChunker:
                 self._push_heading(
                     elem, level, text, heading_stack, heading_by_id
                 )
+            elif elem.element_type == "table":
+                self._flush_prose(prose_buffer, heading_stack, chunks)
+                self._emit_table(elem, heading_stack, chunks)
+            elif elem.element_type == "figure":
+                self._flush_prose(prose_buffer, heading_stack, chunks)
+                self._emit_figure(elem, heading_stack, chunks)
             else:
                 prose_buffer.append(elem)
 
@@ -158,7 +166,6 @@ class StructuralChunker:
             elem.parent_element_id is not None
             and elem.parent_element_id in heading_by_id
         ):
-            # Keep ancestors up through parent_element_id
             while (
                 heading_stack
                 and heading_stack[-1].element.element_id
@@ -169,7 +176,6 @@ class StructuralChunker:
             while heading_stack and heading_stack[-1].level >= level:
                 heading_stack.pop()
 
-        # Parent heading now has a subheading child, so do not emit it solo
         if heading_stack:
             heading_stack[-1].has_emitted_content = True
 
@@ -183,13 +189,150 @@ class StructuralChunker:
         for entry in heading_stack:
             entry.has_emitted_content = True
 
+    def _emit_figure(
+        self,
+        elem: DocumentElement,
+        heading_stack: List[_HeadingEntry],
+        chunks: List[DocumentChunk],
+    ) -> None:
+        """Emit a figure element as an atomic chunk under the active section.
+
+        Args:
+            elem: Figure DocumentElement.
+            heading_stack: Active heading stack.
+            chunks: Output chunk list.
+        """
+        section_path = [entry.title for entry in heading_stack]
+        chunks.append(
+            self._build_chunk(
+                chunk_index=len(chunks),
+                text=elem.text.strip(),
+                section_path=section_path,
+                elements=[elem],
+                extra_metadata={"atomic_element": "figure"},
+            )
+        )
+        self._mark_stack_emitted(heading_stack)
+
+    def _emit_table(
+        self,
+        elem: DocumentElement,
+        heading_stack: List[_HeadingEntry],
+        chunks: List[DocumentChunk],
+    ) -> None:
+        """Emit a table intact, or split oversized tables by row with headers.
+
+        Args:
+            elem: Table DocumentElement.
+            heading_stack: Active heading stack.
+            chunks: Output chunk list.
+        """
+        section_path = [entry.title for entry in heading_stack]
+        raw_text = elem.text.strip()
+
+        if len(raw_text) <= self.config.max_chars:
+            chunks.append(
+                self._build_chunk(
+                    chunk_index=len(chunks),
+                    text=raw_text,
+                    section_path=section_path,
+                    elements=[elem],
+                    extra_metadata={"atomic_element": "table"},
+                )
+            )
+            self._mark_stack_emitted(heading_stack)
+            return
+
+        lines = [line for line in raw_text.splitlines() if line.strip()]
+        header_lines, data_rows = self._split_table_header_and_rows(lines)
+        if not data_rows:
+            chunks.append(
+                self._build_chunk(
+                    chunk_index=len(chunks),
+                    text=raw_text,
+                    section_path=section_path,
+                    elements=[elem],
+                    extra_metadata={"atomic_element": "table"},
+                )
+            )
+            self._mark_stack_emitted(heading_stack)
+            return
+
+        header_block = "\n".join(header_lines)
+        groups: List[List[str]] = []
+        current_rows: List[str] = []
+
+        for row in data_rows:
+            candidate_rows = current_rows + [row]
+            candidate_text = f"{header_block}\n" + "\n".join(candidate_rows)
+            if current_rows and len(candidate_text) > self.config.max_chars:
+                groups.append(current_rows)
+                current_rows = [row]
+            else:
+                current_rows = candidate_rows
+
+        if current_rows:
+            groups.append(current_rows)
+
+        total_parts = len(groups)
+        for part_idx, row_group in enumerate(groups, start=1):
+            part_text = f"{header_block}\n" + "\n".join(row_group)
+            chunks.append(
+                self._build_chunk(
+                    chunk_index=len(chunks),
+                    text=part_text,
+                    section_path=section_path,
+                    elements=[elem],
+                    extra_metadata={
+                        "atomic_element": "table",
+                        "table_part": part_idx,
+                        "table_total_parts": total_parts,
+                    },
+                )
+            )
+        self._mark_stack_emitted(heading_stack)
+
+    @staticmethod
+    def _split_table_header_and_rows(
+        lines: List[str],
+    ) -> Tuple[List[str], List[str]]:
+        """Separate repeating table header lines from data rows.
+
+        Handles Markdown tables (header + separator), plain pipe-delimited
+        tables, and XLSX sheet tables (sheet title + column header).
+
+        Args:
+            lines: Non-empty table text lines.
+
+        Returns:
+            Tuple of (header_lines, data_rows).
+        """
+        if len(lines) <= 1:
+            return lines, []
+
+        idx = 0
+        header_lines: List[str] = []
+        if lines[0].lstrip().startswith("###") and len(lines) >= 2:
+            header_lines.append(lines[0])
+            idx = 1
+
+        header_lines.append(lines[idx])
+        idx += 1
+
+        if idx < len(lines) and "-" in lines[idx]:
+            if _TABLE_SEPARATOR_RE.match(lines[idx].strip()) is not None:
+                header_lines.append(lines[idx])
+                idx += 1
+
+        return header_lines, lines[idx:]
+
     def _flush_prose(
         self,
         prose_buffer: List[DocumentElement],
         heading_stack: List[_HeadingEntry],
         chunks: List[DocumentChunk],
     ) -> None:
-        """Flush buffered prose elements into one or more chunks.
+        """Pack buffered prose elements into size-bounded overlapping chunks.
 
         Args:
             prose_buffer: Buffered non-heading elements (cleared in place).
@@ -200,17 +343,180 @@ class StructuralChunker:
             return
 
         section_path = [entry.title for entry in heading_stack]
-        combined_text = "\n\n".join(e.text.strip() for e in prose_buffer)
-        chunks.append(
-            self._build_chunk(
-                chunk_index=len(chunks),
-                text=combined_text,
-                section_path=section_path,
-                elements=list(prose_buffer),
+        max_chars = self.config.max_chars
+        target_chars = self.config.target_chars
+        overlap_chars = self.config.overlap_chars
+
+        # Flatten buffered elements into bounded segments (plus pre-sliced runs
+        # for single unbroken tokens longer than max_chars).
+        units: List[Tuple[DocumentElement, str, bool]] = []
+        for elem in prose_buffer:
+            text = elem.text.strip()
+            if len(text) <= max_chars:
+                units.append((elem, text, False))
+            else:
+                for seg, is_hard_slice in self._split_oversized_text(
+                    text, max_chars, overlap_chars
+                ):
+                    units.append((elem, seg, is_hard_slice))
+
+        current_items: List[Tuple[DocumentElement, str]] = []
+        current_text = ""
+
+        def _emit_current() -> None:
+            nonlocal current_items, current_text
+            if not current_text:
+                return
+            unique_elems = self._dedupe_elements(
+                [item[0] for item in current_items]
             )
-        )
+            chunks.append(
+                self._build_chunk(
+                    chunk_index=len(chunks),
+                    text=current_text,
+                    section_path=section_path,
+                    elements=unique_elems,
+                )
+            )
+
+        for elem, seg, is_hard_slice in units:
+            if is_hard_slice:
+                _emit_current()
+                current_items = []
+                current_text = ""
+                chunks.append(
+                    self._build_chunk(
+                        chunk_index=len(chunks),
+                        text=seg,
+                        section_path=section_path,
+                        elements=[elem],
+                    )
+                )
+                continue
+
+            if not current_text:
+                current_items = [(elem, seg)]
+                current_text = seg
+                continue
+
+            same_elem = current_items[-1][0].element_id == elem.element_id
+            sep = " " if same_elem else "\n\n"
+            candidate = f"{current_text}{sep}{seg}"
+            if len(candidate) <= target_chars:
+                current_items.append((elem, seg))
+                current_text = candidate
+                continue
+
+            _emit_current()
+            prev_elem = current_items[-1][0]
+            overlap_sep = " " if prev_elem.element_id == elem.element_id else "\n\n"
+            max_overlap = min(
+                overlap_chars,
+                max(0, max_chars - len(overlap_sep) - len(seg)),
+            )
+            overlap_text = self._extract_word_aligned_tail(
+                current_text, max_overlap
+            )
+            if overlap_text:
+                current_items = [(prev_elem, overlap_text), (elem, seg)]
+                current_text = f"{overlap_text}{overlap_sep}{seg}"
+            else:
+                current_items = [(elem, seg)]
+                current_text = seg
+
+        _emit_current()
         self._mark_stack_emitted(heading_stack)
         prose_buffer.clear()
+
+    @classmethod
+    def _split_oversized_text(
+        cls,
+        text: str,
+        max_chars: int,
+        overlap_chars: int,
+    ) -> List[Tuple[str, bool]]:
+        """Split oversized prose by sentence, word, or hard slice fallback.
+
+        Args:
+            text: Source paragraph text exceeding max_chars.
+            max_chars: Hard character limit per chunk.
+            overlap_chars: Overlap budget for hard-sliced unbroken tokens.
+
+        Returns:
+            List of (segment_text, is_hard_slice) tuples.
+        """
+        sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
+        segments: List[Tuple[str, bool]] = []
+
+        for sentence in sentences:
+            if len(sentence) <= max_chars:
+                segments.append((sentence, False))
+                continue
+
+            # Sentence itself exceeds max_chars: split on word boundaries.
+            words = sentence.split()
+            word_buf = ""
+            for word in words:
+                if len(word) > max_chars:
+                    if word_buf:
+                        segments.append((word_buf, False))
+                        word_buf = ""
+                    step = max(1, max_chars - overlap_chars)
+                    for start in range(0, len(word), step):
+                        piece = word[start : start + max_chars]
+                        segments.append((piece, True))
+                        if start + max_chars >= len(word):
+                            break
+                elif not word_buf:
+                    word_buf = word
+                elif len(word_buf) + 1 + len(word) <= max_chars:
+                    word_buf = f"{word_buf} {word}"
+                else:
+                    segments.append((word_buf, False))
+                    word_buf = word
+            if word_buf:
+                segments.append((word_buf, False))
+
+        return segments
+
+    @staticmethod
+    def _extract_word_aligned_tail(text: str, max_len: int) -> str:
+        """Return up to max_len trailing characters aligned to a word boundary.
+
+        Args:
+            text: Full text of the previously emitted chunk.
+            max_len: Maximum character length of the overlap snippet.
+
+        Returns:
+            Word-aligned trailing overlap snippet, or empty string if none fits.
+        """
+        if max_len <= 0 or not text:
+            return ""
+        if len(text) <= max_len:
+            return text
+
+        tail = text[-max_len:]
+        # If the character immediately preceding tail is not whitespace, drop
+        # the leading partial word so we never cut mid-word.
+        if not text[-max_len - 1].isspace():
+            first_space = tail.find(" ")
+            if first_space == -1:
+                return ""
+            tail = tail[first_space + 1 :]
+        return tail.strip()
+
+    @staticmethod
+    def _dedupe_elements(
+        elements: List[DocumentElement],
+    ) -> List[DocumentElement]:
+        """Deduplicate elements by element_id while preserving first-seen order."""
+        seen: set[uuid.UUID] = set()
+        unique: List[DocumentElement] = []
+        for elem in elements:
+            if elem.element_id not in seen:
+                seen.add(elem.element_id)
+                unique.append(elem)
+        return unique
 
     def _build_chunk(
         self,
