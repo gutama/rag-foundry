@@ -49,10 +49,10 @@
 
 ## Phase 4: Ingestion-to-Index Wiring, Optional Model Adapters & End-to-End Reproducibility
 
-- [ ] Task: Implement `IndexerService` and wire `IngestionPipeline` to chunking and DB indexing
-  - [ ] Write failing tests in `tests/test_indexer_service.py` covering `IndexerService.index_document`, atomic chunk persistence with embeddings, bounding boxes, `security_domain`, and metadata, re-indexing/idempotency behavior, and `IngestionPipeline` end-to-end `ingest_and_index` flow
-  - [ ] Implement `src/rag_foundry/ingestion/indexer.py` (`IndexerService`, `IndexingResult`) and extend `IngestionPipeline` with optional `indexer` / `ingest_and_index` support (preserving full backward compatibility for `process_file`)
-  - [ ] Refactor and verify >80% coverage
+- [x] Task: Implement `IndexerService` and wire `IngestionPipeline` to chunking and DB indexing a49ef62
+  - [x] Write failing tests in `tests/test_indexer_service.py` covering `IndexerService.index_document`, atomic chunk persistence with embeddings, bounding boxes, `security_domain`, and metadata, re-indexing/idempotency behavior, and `IngestionPipeline` end-to-end `ingest_and_index` flow
+  - [x] Implement `src/rag_foundry/ingestion/indexer.py` (`IndexerService`, `IndexingResult`) and extend `IngestionPipeline` with optional `indexer` / `ingest_and_index` support (preserving full backward compatibility for `process_file`)
+  - [x] Refactor and verify >80% coverage
 - [ ] Task: Implement optional local/air-gapped embedding and cross-encoder reranker adapters
   - [ ] Write failing tests in `tests/test_model_adapters.py` covering `HttpEmbeddingService` (Ollama `/api/embed` and OpenAI-compatible `/v1/embeddings` payloads, error handling, dimension checks), lazy `SentenceTransformerEmbeddingService` (mocked backend and clear `ImportError` when uninstalled), and `CrossEncoderReranker` (custom/lazy scorer normalization to `[0.0, 1.0]`, deterministic tie-breaking, explicit fallback behavior)
   - [ ] Implement `HttpEmbeddingService` and `SentenceTransformerEmbeddingService` in `src/rag_foundry/retrieval/embeddings.py`, complete `CrossEncoderReranker` in `src/rag_foundry/retrieval/reranking.py`, and add optional extras (`[ml]` / `[pgvector]`) in `pyproject.toml` without adding heavy mandatory dependencies
