@@ -42,10 +42,10 @@
   - [x] Write failing unit tests in `tests/test_citation_validator.py` verifying rejection of fabricated/unknown citation IDs, rejection of citations unauthorized under caller `SecurityContext` (workspace or security domain), rejection of superseded `document_version_id` revisions, rejection of unresolvable source spans, and detection of curated-vs-extracted misrepresentation (claiming curated certainty from candidate-only extracted evidence)
   - [x] Implement `src/rag_foundry/citations/validator.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Implement `SufficiencyGate` for warnings, claim stripping, and explicit abstention
-  - [ ] Write failing unit tests in `tests/test_sufficiency_gate.py` covering retrieval-level abstention propagation, invalid-citation abstention, insufficient supported-claim ratio triggers, `unsupported_claim_action` modes (`abstain`, `strip_and_warn`, `warn`), `allow_extracted_only_answers=False` enforcement, and visible curated-vs-extracted disclosure in `limitations`
-  - [ ] Implement `src/rag_foundry/citations/sufficiency.py` and export public symbols in `src/rag_foundry/citations/__init__.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Implement `SufficiencyGate` for warnings, claim stripping, and explicit abstention 7e9dbad
+  - [x] Write failing unit tests in `tests/test_sufficiency_gate.py` covering retrieval-level abstention propagation, invalid-citation abstention, insufficient supported-claim ratio triggers, `unsupported_claim_action` modes (`abstain`, `strip_and_warn`, `warn`), `allow_extracted_only_answers=False` enforcement, and visible curated-vs-extracted disclosure in `limitations`
+  - [x] Implement `src/rag_foundry/citations/sufficiency.py` and export public symbols in `src/rag_foundry/citations/__init__.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 4: Grounded QA Orchestrator (`standard`, `curated_knowledge`, `decomposed`) & End-to-End Exit-Criteria Suite
