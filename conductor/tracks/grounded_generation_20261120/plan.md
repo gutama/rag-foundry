@@ -54,10 +54,10 @@
   - [x] Write failing tests in `tests/test_grounded_qa_pipeline.py` covering end-to-end execution across `RetrievalPipeline` -> `AssertionContextLoader` -> `EvidenceFormatter` -> `ModelGateway` -> `CitationAligner` -> `CitationValidator` -> `SufficiencyGate`, verifying `standard` mode grounding, `curated_knowledge` prioritization and candidate segregation, malformed LLM output abstention, and `semantic_profile_id` / `model_profile_id` trace recording
   - [x] Implement `src/rag_foundry/generation/pipeline.py` and wire exports in `src/rag_foundry/generation/__init__.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Implement `QueryDecomposer` and `decomposed` multi-step QA mode
-  - [ ] Write failing tests in `tests/test_decomposed_qa.py` covering complex question decomposition (LLM-assisted via `ModelGateway` + deterministic fallback splitter), `max_sub_questions` bounds, per-sub-question authorized retrieval and grounded sub-answering, deduplicated evidence handle merging, final synthesized `GroundedAnswer` re-validation, and sub-question provenance traces in `execution_metrics`
-  - [ ] Implement `src/rag_foundry/generation/decomposer.py` and integrate `decomposed` mode into `src/rag_foundry/generation/pipeline.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Implement `QueryDecomposer` and `decomposed` multi-step QA mode 6ea7fe7
+  - [x] Write failing tests in `tests/test_decomposed_qa.py` covering complex question decomposition (LLM-assisted via `ModelGateway` + deterministic fallback splitter), `max_sub_questions` bounds, per-sub-question authorized retrieval and grounded sub-answering, deduplicated evidence handle merging, final synthesized `GroundedAnswer` re-validation, and sub-question provenance traces in `execution_metrics`
+  - [x] Implement `src/rag_foundry/generation/decomposer.py` and integrate `decomposed` mode into `src/rag_foundry/generation/pipeline.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: End-to-end Phase 6 exit-criteria integration & regression suite
   - [ ] Write failing integration tests in `tests/test_phase6_end_to_end.py` validating all Phase 6 exit criteria end-to-end (`IngestionPipeline` -> `IndexerService` -> `RetrievalPipeline` + `AssertionRecord`s -> `GroundedQAPipeline` across `standard`, `curated_knowledge`, and `decomposed` modes): (1) every supported claim links to supplied authorized evidence, (2) invalid/unauthorized/superseded citation IDs are rejected, (3) low-evidence questions trigger explicit warning or abstention, (4) curated and extracted knowledge are visibly distinguished, and (5) unapproved model profiles fail closed
   - [ ] Resolve any integration gaps and verify the full `pytest` suite and >80% coverage gates pass across all new modules
