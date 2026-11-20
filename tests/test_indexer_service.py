@@ -94,14 +94,14 @@ async def test_indexer_persists_chunks_with_embeddings_acl_idempotency() -> (
         session.add(doc)
         await session.commit()
 
-        emb = MockDeterministicEmbeddingService(dimension=32)
+        emb = MockDeterministicEmbeddingService(dimension=384)
         indexer = IndexerService(
             session_or_factory=session,
             embedding_service=emb,
             chunker=StructuralChunker(
                 ChunkingConfig(target_chars=400, max_chars=500)
             ),
-            embedding_model_name="mock-det-32",
+            embedding_model_name="mock-det-384",
         )
         canonical = _sample_canonical_doc()
 
@@ -119,8 +119,8 @@ async def test_indexer_persists_chunks_with_embeddings_acl_idempotency() -> (
         assert res1.chunk_count == 2
         assert len(res1.chunk_ids) == 2
         assert res1.replaced_chunk_count == 0
-        assert res1.embedding_model == "mock-det-32"
-        assert res1.embedding_dim == 32
+        assert res1.embedding_model == "mock-det-384"
+        assert res1.embedding_dim == 384
 
         rows = (
             (
@@ -142,9 +142,9 @@ async def test_indexer_persists_chunks_with_embeddings_acl_idempotency() -> (
         assert rows[0].chunk_metadata["department"] == "treasury"
         assert rows[0].chunk_metadata["year"] == 2026
         assert rows[0].embedding is not None
-        assert len(rows[0].embedding) == 32
-        assert rows[0].embedding_model == "mock-det-32"
-        assert rows[0].embedding_dim == 32
+        assert len(rows[0].embedding) == 384
+        assert rows[0].embedding_model == "mock-det-384"
+        assert rows[0].embedding_dim == 384
         assert rows[0].search_vector is not None
         assert rows[1].page_numbers == [2]
         assert rows[1].section_path == ["Liquidity Controls"]
@@ -192,7 +192,7 @@ async def test_indexer_atomicity_preserves_chunks_on_embedding_error() -> None:
     class _FailingEmbedder(EmbeddingService):
         @property
         def dimension(self) -> int:
-            return 16
+            return 384
 
         def embed_query(self, text: str) -> List[float]:
             raise RuntimeError("Embedding endpoint unavailable")
@@ -224,7 +224,7 @@ async def test_indexer_atomicity_preserves_chunks_on_embedding_error() -> None:
 
         good_indexer = IndexerService(
             session_or_factory=session,
-            embedding_service=MockDeterministicEmbeddingService(dimension=16),
+            embedding_service=MockDeterministicEmbeddingService(dimension=384),
         )
         canonical = _sample_canonical_doc()
         await good_indexer.index_document(
@@ -270,7 +270,7 @@ async def test_ingestion_pipeline_ingest_and_index_searchable(
         conn = await session.connection()
         await conn.run_sync(Base.metadata.create_all)
 
-        emb = MockDeterministicEmbeddingService(dimension=32)
+        emb = MockDeterministicEmbeddingService(dimension=384)
         indexer = IndexerService(
             session_or_factory=session,
             embedding_service=emb,
@@ -307,7 +307,7 @@ async def test_ingestion_pipeline_ingest_and_index_searchable(
             lexical = PostgresLexicalRetriever(session)
 
             query = RetrievalQuery(
-                query_text="RAG Foundry Architecture",
+                query_text="canonical parsing model",
                 filter=RetrievalFilter(
                     workspace_id=ws_id,
                     security_domains=["compliance"],
@@ -321,6 +321,9 @@ async def test_ingestion_pipeline_ingest_and_index_searchable(
             assert len(lex_hits) >= 1
             assert dense_hits[0].document_version_id == result.document_id
             assert lex_hits[0].document_version_id == result.document_id
+            assert lex_hits[0].section_path == [
+                "Institutional Architecture Report"
+            ]
 
             # Without an indexer configured, ingest_and_index raises ValueError
             plain_pipeline = IngestionPipeline(
@@ -350,13 +353,14 @@ async def test_ingestion_pipeline_ingest_and_index_searchable(
 
 @pytest.mark.asyncio
 async def test_indexer_validation_and_empty_doc_reindex() -> None:
-    """Indexer validates domain/embedding dimensions and clears stale chunks."""
+    """Indexer validates domain/schema dim and clears stale chunks."""
     from rag_foundry.ingestion.indexer import IndexerService
+    from rag_foundry.retrieval.embeddings import HttpEmbeddingService
 
     class _WrongDimEmbedder(EmbeddingService):
         @property
         def dimension(self) -> int:
-            return 16
+            return 384
 
         def embed_query(self, text: str) -> List[float]:
             return [0.1] * 8
@@ -386,9 +390,21 @@ async def test_indexer_validation_and_empty_doc_reindex() -> None:
         session.add(doc)
         await session.commit()
 
+        # Early failure when embedding service dimension != schema vector(384)
+        wrong_schema_svc = HttpEmbeddingService(
+            base_url="http://localhost:11434",
+            model_name="nomic-embed-text",
+            dimension=768,
+        )
+        with pytest.raises(ValueError, match="Chunk.embedding schema"):
+            IndexerService(
+                session_or_factory=session,
+                embedding_service=wrong_schema_svc,
+            )
+
         indexer = IndexerService(
             session_or_factory=session,
-            embedding_service=MockDeterministicEmbeddingService(dimension=16),
+            embedding_service=MockDeterministicEmbeddingService(dimension=384),
         )
         canonical = _sample_canonical_doc()
 
@@ -402,7 +418,7 @@ async def test_indexer_validation_and_empty_doc_reindex() -> None:
                 security_domain="   ",
             )
 
-        # Wrong embedding dimension rejected
+        # Wrong runtime vector length rejected before DB writes
         bad_dim_indexer = IndexerService(
             session_or_factory=session,
             embedding_service=_WrongDimEmbedder(),
@@ -441,4 +457,171 @@ async def test_indexer_validation_and_empty_doc_reindex() -> None:
         )
         assert cleared.chunk_count == 0
         assert cleared.replaced_chunk_count == 2
+
+
+@pytest.mark.asyncio
+async def test_indexer_default_expire_on_commit_and_commit_false_rollback(
+    tmp_path,
+) -> None:
+    """Indexer works with expire_on_commit=True and respects commit=False."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from rag_foundry.ingestion.indexer import IndexerService
+
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'expire_test.db'}"
+    engine = create_async_engine(db_url)
+    # Default SQLAlchemy async_sessionmaker has expire_on_commit=True!
+    default_factory = async_sessionmaker(engine)
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        ws_id = uuid.uuid4()
+        prof_id = uuid.uuid4()
+        doc_id = uuid.uuid4()
+
+        async with default_factory() as setup_sess:
+            setup_sess.add(
+                Document(
+                    id=doc_id,
+                    document_id=uuid.uuid4(),
+                    workspace_id=ws_id,
+                    title="Expire Test Doc",
+                    mime_type="application/pdf",
+                    checksum="e" * 64,
+                    page_count=2,
+                    parser_name="native_pdf",
+                    parser_version="1.0.0",
+                    semantic_profile_id=prof_id,
+                )
+            )
+            await setup_sess.commit()
+
+        emb = MockDeterministicEmbeddingService(dimension=384)
+        canonical = _sample_canonical_doc()
+
+        # 1. Default sessionmaker (expire_on_commit=True): no DetachedInstance
+        factory_indexer = IndexerService(
+            session_or_factory=default_factory,
+            embedding_service=emb,
+        )
+        res_factory = await factory_indexer.index_document(
+            canonical_doc=canonical,
+            document_version_id=doc_id,
+            workspace_id=ws_id,
+            semantic_profile_id=prof_id,
+        )
+        assert res_factory.chunk_count == 2
+        assert len(res_factory.chunk_ids) == 2
+
+        # commit=False on a sessionmaker raises ValueError
+        with pytest.raises(ValueError, match="commit=False"):
+            await factory_indexer.index_document(
+                canonical_doc=canonical,
+                document_version_id=doc_id,
+                workspace_id=ws_id,
+                semantic_profile_id=prof_id,
+                commit=False,
+            )
+
+        # 2. Shared session (expire_on_commit=True) + active txn + commit=True
+        async with default_factory() as shared_sess:
+            await shared_sess.execute(select(Document).limit(1))
+            assert shared_sess.in_transaction()
+            shared_indexer = IndexerService(
+                session_or_factory=shared_sess,
+                embedding_service=emb,
+            )
+            res_shared = await shared_indexer.index_document(
+                canonical_doc=canonical,
+                document_version_id=doc_id,
+                workspace_id=ws_id,
+                semantic_profile_id=prof_id,
+                commit=True,
+            )
+            assert res_shared.chunk_count == 2
+            assert res_shared.chunk_ids == res_factory.chunk_ids
+
+        # 3. Fresh session (not in_transaction) + commit=False + rollback
+        doc_id_2 = uuid.uuid4()
+        async with default_factory() as setup_sess:
+            setup_sess.add(
+                Document(
+                    id=doc_id_2,
+                    document_id=uuid.uuid4(),
+                    workspace_id=ws_id,
+                    title="Rollback Test Doc",
+                    mime_type="application/pdf",
+                    checksum="f" * 64,
+                    page_count=2,
+                    parser_name="native_pdf",
+                    parser_version="1.0.0",
+                    semantic_profile_id=prof_id,
+                )
+            )
+            await setup_sess.commit()
+
+        async with default_factory() as fresh_sess:
+            assert not fresh_sess.in_transaction()
+            uncommitted_indexer = IndexerService(
+                session_or_factory=fresh_sess,
+                embedding_service=emb,
+            )
+            res_uncommitted = await uncommitted_indexer.index_document(
+                canonical_doc=canonical,
+                document_version_id=doc_id_2,
+                workspace_id=ws_id,
+                semantic_profile_id=prof_id,
+                commit=False,
+            )
+            assert res_uncommitted.chunk_count == 2
+            assert fresh_sess.in_transaction()
+            await fresh_sess.rollback()
+
+        # Verify rollback left zero rows visible to a brand-new session
+        async with default_factory() as verify_sess:
+            persisted = (
+                (
+                    await verify_sess.execute(
+                        select(Chunk).where(
+                            Chunk.document_version_id == doc_id_2
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            assert persisted == []
+
+        # 4. commit=False followed by explicit commit() persists rows cleanly
+        async with default_factory() as commit_later_sess:
+            indexer_later = IndexerService(
+                session_or_factory=commit_later_sess,
+                embedding_service=emb,
+            )
+            await indexer_later.index_document(
+                canonical_doc=canonical,
+                document_version_id=doc_id_2,
+                workspace_id=ws_id,
+                semantic_profile_id=prof_id,
+                commit=False,
+            )
+            await commit_later_sess.commit()
+
+        async with default_factory() as verify_sess:
+            persisted_after = (
+                (
+                    await verify_sess.execute(
+                        select(Chunk).where(
+                            Chunk.document_version_id == doc_id_2
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            assert len(persisted_after) == 2
+    finally:
+        await engine.dispose()
 

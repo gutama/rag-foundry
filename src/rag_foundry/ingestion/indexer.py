@@ -1,11 +1,13 @@
 """Document chunking, embedding, and atomic DB persistence (ADR-0002/0004)."""
 
+import asyncio
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag_foundry.chunking.models import DocumentChunk
 from rag_foundry.chunking.structural import StructuralChunker
@@ -14,6 +16,8 @@ from rag_foundry.parsing.models import CanonicalDocument
 from rag_foundry.retrieval.embeddings import (
     EmbeddingService,
     MockDeterministicEmbeddingService,
+    SentenceTransformerEmbeddingService,
+    resolve_embedding_model_name,
 )
 from rag_foundry.retrieval.postgres_filters import (
     SessionOrFactory,
@@ -86,6 +90,7 @@ class IndexerService:
         chunker: Optional[StructuralChunker] = None,
         embedding_model_name: Optional[str] = None,
         fts_language: str = "english",
+        expected_embedding_dim: Optional[int] = None,
     ) -> None:
         """Initialize IndexerService.
 
@@ -98,18 +103,52 @@ class IndexerService:
                 Chunk rows (inferred if omitted).
             fts_language: PostgreSQL text-search configuration for
                 ``to_tsvector`` updates.
+            expected_embedding_dim: Expected vector dimension matching the
+                ``chunks.embedding`` column (defaults to ``Chunk.embedding``
+                column dimension).
+
+        Raises:
+            ValueError: If ``embedding_service.dimension`` does not match the
+                configured ``chunks.embedding`` column dimension.
         """
         self.session_or_factory = session_or_factory
         self.embedding_service: EmbeddingService = (
             embedding_service or MockDeterministicEmbeddingService()
         )
         self.chunker = chunker or StructuralChunker()
-        self.embedding_model_name = embedding_model_name or getattr(
-            self.embedding_service,
-            "model_name",
-            type(self.embedding_service).__name__,
+        self.embedding_model_name = resolve_embedding_model_name(
+            self.embedding_service, embedding_model_name
         )
         self.fts_language = fts_language
+
+        schema_dim = getattr(Chunk.__table__.c.embedding.type, "dim", None)
+        target_dim = (
+            expected_embedding_dim
+            if expected_embedding_dim is not None
+            else schema_dim
+        )
+        if target_dim is not None and target_dim <= 0:
+            raise ValueError("expected_embedding_dim must be positive.")
+        self.expected_embedding_dim = target_dim
+
+        # Fail fast if the embedding service dimension disagrees with the
+        # Chunk.embedding column (skip eager model load for lazy ST adapters
+        # whose dimension is not yet explicitly configured).
+        has_known_dim = (
+            not isinstance(
+                self.embedding_service, SentenceTransformerEmbeddingService
+            )
+            or self.embedding_service._dimension is not None
+        )
+        if target_dim is not None and has_known_dim:
+            service_dim = self.embedding_service.dimension
+            if service_dim != target_dim:
+                raise ValueError(
+                    f"Embedding dimension mismatch with Chunk.embedding "
+                    f"schema: service dimension is {service_dim}, but "
+                    f"column expects {target_dim}. Align the model or set "
+                    f"RAG_FOUNDRY_EMBEDDING_DIM={service_dim} and migrate."
+                )
 
     def build_postgresql_fts_update(
         self, document_version_id: uuid.UUID
@@ -146,6 +185,16 @@ class IndexerService:
             )
 
         expected_dim = self.embedding_service.dimension
+        if (
+            self.expected_embedding_dim is not None
+            and expected_dim != self.expected_embedding_dim
+        ):
+            raise ValueError(
+                f"Embedding dimension mismatch with Chunk.embedding schema: "
+                f"service dimension is {expected_dim}, but column expects "
+                f"{self.expected_embedding_dim}."
+            )
+
         for idx, vec in enumerate(vectors):
             if len(vec) != expected_dim:
                 raise ValueError(
@@ -165,6 +214,7 @@ class IndexerService:
         security_domain: str,
         metadata: Optional[Dict[str, Any]],
         dialect_name: str,
+        embedding_dim: int,
     ) -> List[Chunk]:
         """Convert DocumentChunk domain models + vectors into Chunk ORM rows."""
         rows: List[Chunk] = []
@@ -197,7 +247,7 @@ class IndexerService:
                     chunk_metadata=merged_meta,
                     embedding=vec,
                     embedding_model=self.embedding_model_name,
-                    embedding_dim=self.embedding_service.dimension,
+                    embedding_dim=embedding_dim,
                     search_vector=(
                         None
                         if dialect_name == "postgresql"
@@ -232,22 +282,36 @@ class IndexerService:
             security_domain: Non-empty security domain tag (default 'general').
             metadata: Optional governed metadata dictionary copied onto chunks.
             commit: Whether to commit the session after writing (default True).
+                When False, writes remain uncommitted inside the caller's
+                session transaction so they can be grouped or rolled back.
 
         Returns:
             IndexingResult summarizing persisted chunk IDs and counts.
 
         Raises:
-            ValueError: If security_domain is empty or embedding dimensions
-                fail validation.
+            ValueError: If security_domain is empty, commit=False is used with
+                a session factory, or embedding dimensions fail validation.
         """
         start = time.perf_counter()
         domain_clean = security_domain.strip()
         if not domain_clean:
             raise ValueError("security_domain must be a non-empty string.")
+        if not commit and not isinstance(
+            self.session_or_factory, AsyncSession
+        ):
+            raise ValueError(
+                "commit=False requires an explicit AsyncSession instance so "
+                "the caller controls transaction commit or rollback."
+            )
 
         # 1. Chunk and embed BEFORE mutating database state for atomicity
         doc_chunks = self.chunker.chunk_document(canonical_doc)
-        vectors = self._compute_validated_embeddings(doc_chunks)
+        vectors = await asyncio.to_thread(
+            self._compute_validated_embeddings, doc_chunks
+        )
+        embedding_dim = (
+            len(vectors[0]) if vectors else self.embedding_service.dimension
+        )
 
         # 2. Atomically replace existing chunks for this document_version_id
         async with acquire_session(self.session_or_factory) as (
@@ -263,7 +327,11 @@ class IndexerService:
                 security_domain=domain_clean,
                 metadata=metadata,
                 dialect_name=dialect_name,
+                embedding_dim=embedding_dim,
             )
+            # Capture IDs BEFORE commit/close so default expire_on_commit=True
+            # never triggers DetachedInstanceError or MissingGreenlet.
+            chunk_ids = [row.id for row in chunk_rows]
 
             async def _apply_writes() -> int:
                 del_res = await session.execute(
@@ -283,23 +351,42 @@ class IndexerService:
                         )
                 return replaced
 
-            if session.in_transaction():
-                async with session.begin_nested():
-                    replaced_count = await _apply_writes()
-                if commit:
+            if commit:
+                if session.in_transaction():
+                    if dialect_name == "postgresql":
+                        async with session.begin_nested():
+                            replaced_count = await _apply_writes()
+                    else:
+                        replaced_count = await _apply_writes()
                     await session.commit()
+                else:
+                    async with session.begin():
+                        replaced_count = await _apply_writes()
             else:
-                async with session.begin():
-                    replaced_count = await _apply_writes()
+                if session.in_transaction():
+                    if dialect_name == "postgresql":
+                        async with session.begin_nested():
+                            replaced_count = await _apply_writes()
+                    else:
+                        replaced_count = await _apply_writes()
+                else:
+                    # Autobegin a caller-owned transaction without committing
+                    # (avoiding SAVEPOINT on SQLite before BEGIN, which commits
+                    # on RELEASE SAVEPOINT).
+                    try:
+                        replaced_count = await _apply_writes()
+                    except Exception:
+                        await session.rollback()
+                        raise
 
         duration_ms = round((time.perf_counter() - start) * 1000.0, 3)
         return IndexingResult(
             document_version_id=document_version_id,
             workspace_id=workspace_id,
-            chunk_count=len(chunk_rows),
-            chunk_ids=[row.id for row in chunk_rows],
+            chunk_count=len(chunk_ids),
+            chunk_ids=chunk_ids,
             replaced_chunk_count=replaced_count,
             embedding_model=self.embedding_model_name,
-            embedding_dim=self.embedding_service.dimension,
+            embedding_dim=embedding_dim,
             duration_ms=duration_ms,
         )

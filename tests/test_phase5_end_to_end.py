@@ -23,14 +23,14 @@ from rag_foundry.chunking import ChunkingConfig, StructuralChunker
 from rag_foundry.db.models import (
     AssertionRecord,
     EntityRecord,
-    OntologyClassRecord,
-    OntologyReleaseRecord,
 )
 from rag_foundry.ingestion.indexer import IndexerService
 from rag_foundry.ingestion.pipeline import (
     IngestionJobStatus,
     IngestionPipeline,
 )
+from rag_foundry.ontology.models import OntologyClass, OntologyRelease
+from rag_foundry.ontology.registry import OntologyRegistry
 from rag_foundry.retrieval.dense import DenseVectorRecord, DenseVectorRetriever
 from rag_foundry.retrieval.embeddings import MockDeterministicEmbeddingService
 from rag_foundry.retrieval.expansion import SemanticQueryExpansionService
@@ -130,46 +130,50 @@ async def _seed_governed_semantics(
     session,
     workspace_id: uuid.UUID,
     semantic_profile_id: uuid.UUID,
-) -> Tuple[OntologyReleaseRecord, OntologyReleaseRecord, EntityRecord]:
-    """Seed approved/draft releases, redirected entity, and candidate."""
-    approved_rel = OntologyReleaseRecord(
-        id=uuid.uuid4(),
+) -> Tuple[OntologyRelease, OntologyRelease, EntityRecord]:
+    """Seed approved/draft releases via OntologyRegistry, entity, candidate."""
+    registry = OntologyRegistry(session)
+    approved_draft = await registry.create_draft(
         ontology_uri="https://example.org/onto/phase5",
         version="1.0.0",
         title="Approved Supervision Ontology",
-        status="approved",
-        published_at=datetime.now(timezone.utc),
     )
-    draft_rel = OntologyReleaseRecord(
-        id=uuid.uuid4(),
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/FinancialRegulator",
+            preferred_labels={"en": "Financial Regulator"},
+        ),
+    )
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/CentralBank",
+            preferred_labels={"en": "Central Bank"},
+            parent_class_uris=["https://example.org/onto/FinancialRegulator"],
+        ),
+    )
+    approved_rel = await registry.publish(approved_draft.release_id)
+
+    draft_rel = await registry.create_draft(
         ontology_uri="https://example.org/onto/phase5",
         version="2.0.0-draft",
         title="Unpublished Draft Ontology",
-        status="draft",
     )
-    session.add_all([approved_rel, draft_rel])
-    await session.flush()
-
-    cls_regulator = OntologyClassRecord(
-        release_id=approved_rel.id,
-        uri="https://example.org/onto/FinancialRegulator",
-        preferred_labels={"en": "Financial Regulator"},
-        parent_class_uris=[],
-        status="active",
+    await registry.add_class(
+        draft_rel.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/CentralBank",
+            preferred_labels={"en": "Central Bank"},
+        ),
     )
-    cls_central_bank = OntologyClassRecord(
-        release_id=approved_rel.id,
-        uri="https://example.org/onto/CentralBank",
-        preferred_labels={"en": "Central Bank"},
-        parent_class_uris=["https://example.org/onto/FinancialRegulator"],
-        status="active",
-    )
-    cls_draft = OntologyClassRecord(
-        release_id=draft_rel.id,
-        uri="https://example.org/onto/DraftSecretConcept",
-        preferred_labels={"en": "DraftSecretConcept"},
-        parent_class_uris=["https://example.org/onto/CentralBank"],
-        status="active",
+    await registry.add_class(
+        draft_rel.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/DraftSecretConcept",
+            preferred_labels={"en": "DraftSecretConcept"},
+            parent_class_uris=["https://example.org/onto/CentralBank"],
+        ),
     )
 
     entity_survivor = EntityRecord(
@@ -182,9 +186,7 @@ async def _seed_governed_semantics(
         aliases={"en": ["BIS Basel"]},
         status="active",
     )
-    session.add_all(
-        [cls_regulator, cls_central_bank, cls_draft, entity_survivor]
-    )
+    session.add(entity_survivor)
     await session.flush()
 
     entity_merged = EntityRecord(
@@ -328,7 +330,7 @@ async def test_phase5_e2e_zero_unauthorized_leakage_across_workspaces_domains(
     ws_a = uuid.uuid4()
     ws_b = uuid.uuid4()
     prof_id = uuid.uuid4()
-    emb = MockDeterministicEmbeddingService(dimension=32)
+    emb = MockDeterministicEmbeddingService(dimension=384)
 
     async with session_factory() as session:
         indexer = IndexerService(
@@ -505,7 +507,7 @@ async def test_phase5_e2e_reproducible_ranking_and_semantic_provenance(
     """Exit Criteria 2 & 3: reproducible ranking and semantic provenance."""
     ws_id = uuid.uuid4()
     prof_id = uuid.uuid4()
-    emb = MockDeterministicEmbeddingService(dimension=32)
+    emb = MockDeterministicEmbeddingService(dimension=384)
 
     async with session_factory() as session:
         approved_rel, draft_rel, entity_survivor = (
@@ -655,8 +657,8 @@ async def test_phase5_e2e_reproducible_ranking_and_semantic_provenance(
                 "ontology",
                 "entity",
             }
-            assert str(approved_rel.id) in trace["release_ids"]
-            assert str(draft_rel.id) not in trace["release_ids"]
+            assert str(approved_rel.release_id) in trace["release_ids"]
+            assert str(draft_rel.release_id) not in trace["release_ids"]
 
             expanded_terms = {t["term"]: t for t in trace["expanded_terms"]}
             assert "Bank for International Settlements" in expanded_terms
@@ -669,7 +671,7 @@ async def test_phase5_e2e_reproducible_ranking_and_semantic_provenance(
             assert "Financial Regulator" in expanded_terms
             assert (
                 expanded_terms["Financial Regulator"]["release_id"]
-                == str(approved_rel.id)
+                == str(approved_rel.release_id)
             )
             assert "Tier 1 Capital" in expanded_terms
             assert "DraftSecretConcept" not in expanded_terms
@@ -683,7 +685,7 @@ async def test_phase5_e2e_recall_gain_and_exact_term_top1_non_regression(
     """Exit Criterion 4: alias recall gain with zero exact-term regression."""
     ws_id = uuid.uuid4()
     prof_id = uuid.uuid4()
-    emb = MockDeterministicEmbeddingService(dimension=32)
+    emb = MockDeterministicEmbeddingService(dimension=384)
     docx_mime = (
         "application/vnd.openxmlformats-officedocument."
         "wordprocessingml.document"
