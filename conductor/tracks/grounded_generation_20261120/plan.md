@@ -26,10 +26,10 @@
   - [x] Write failing unit tests in `tests/test_evidence_formatter.py` covering deterministic handle assignment (`E1..En`, `A1..An`), explicit `[CURATED / APPROVED]` vs. `[EXTRACTED / CANDIDATE — UNVERIFIED]` vs. `[DOCUMENT EVIDENCE]` context blocks, deterministic ordering, character budget truncation, and mode-specific prompt policies (`standard`, `curated_knowledge`, `decomposed`)
   - [x] Implement `src/rag_foundry/generation/formatter.py` and `src/rag_foundry/generation/prompts.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Implement authorized `AssertionContextLoader` bridging Phase 4 assertions and Phase 5 evidence
-  - [ ] Write failing tests in `tests/test_assertion_context_loader.py` covering loading workspace/profile-scoped `AssertionRecord` rows with entity preferred labels and `source_chunk_ids`, strict `SecurityContext` authorization before disclosure, fail-closed empty `allowed_security_domains`, deterministic classification into `curated` vs. `extracted` `EvidenceEntry` objects, and exclusion of `rejected`/`superseded` assertions
-  - [ ] Implement `src/rag_foundry/generation/context.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Implement authorized `AssertionContextLoader` bridging Phase 4 assertions and Phase 5 evidence d465b0d
+  - [x] Write failing tests in `tests/test_assertion_context_loader.py` covering loading workspace/profile-scoped `AssertionRecord` rows with entity preferred labels and `source_chunk_ids`, strict `SecurityContext` authorization before disclosure, fail-closed empty `allowed_security_domains`, deterministic classification into `curated` vs. `extracted` `EvidenceEntry` objects, and exclusion of `rejected`/`superseded` assertions
+  - [x] Implement `src/rag_foundry/generation/context.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 3: Post-Generation Citation Alignment, Validation & Sufficiency/Abstention Gate (`ADR-0020`)
