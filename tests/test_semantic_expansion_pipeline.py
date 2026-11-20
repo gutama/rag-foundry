@@ -11,10 +11,10 @@ from rag_foundry.db.models import (
     Chunk,
     Document,
     EntityRecord,
-    OntologyClassRecord,
-    OntologyReleaseRecord,
 )
 from rag_foundry.db.session import get_sessionmaker
+from rag_foundry.ontology.models import OntologyClass
+from rag_foundry.ontology.registry import OntologyRegistry
 from rag_foundry.retrieval.embeddings import MockDeterministicEmbeddingService
 from rag_foundry.retrieval.expansion import TaxonomyExpansionBridge
 from rag_foundry.retrieval.lexical import LexicalRecord, LexicalRetriever
@@ -62,7 +62,7 @@ def _banking_skos_scheme() -> SKOSConceptSchemeModel:
 
 
 async def _seed_semantic_workspace(session):
-    """Seed document, chunks, approved ontology, and workspace entity."""
+    """Seed document, approved ontology via OntologyRegistry, and entity."""
     ws_id = uuid.uuid4()
     prof_id = uuid.uuid4()
     doc = Document(
@@ -77,31 +77,32 @@ async def _seed_semantic_workspace(session):
         parser_version="1.0.0",
         semantic_profile_id=prof_id,
     )
-    release = OntologyReleaseRecord(
-        id=uuid.uuid4(),
+    session.add(doc)
+    await session.flush()
+
+    registry = OntologyRegistry(session)
+    draft_rel = await registry.create_draft(
         ontology_uri="https://example.org/onto/supervision",
         version="1.0.0",
         title="Supervision Ontology",
-        status="approved",
-        published_at=datetime.now(timezone.utc),
     )
-    session.add_all([doc, release])
-    await session.flush()
+    await registry.add_class(
+        draft_rel.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/FinancialRegulator",
+            preferred_labels={"en": "Financial Regulator"},
+        ),
+    )
+    await registry.add_class(
+        draft_rel.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/CentralBank",
+            preferred_labels={"en": "Central Bank"},
+            parent_class_uris=["https://example.org/onto/FinancialRegulator"],
+        ),
+    )
+    release = await registry.publish(draft_rel.release_id)
 
-    cls_regulator = OntologyClassRecord(
-        release_id=release.id,
-        uri="https://example.org/onto/FinancialRegulator",
-        preferred_labels={"en": "Financial Regulator"},
-        parent_class_uris=[],
-        status="active",
-    )
-    cls_cb = OntologyClassRecord(
-        release_id=release.id,
-        uri="https://example.org/onto/CentralBank",
-        preferred_labels={"en": "Central Bank"},
-        parent_class_uris=["https://example.org/onto/FinancialRegulator"],
-        status="active",
-    )
     entity_bis = EntityRecord(
         id=uuid.uuid4(),
         workspace_id=ws_id,
@@ -112,7 +113,7 @@ async def _seed_semantic_workspace(session):
         aliases={"en": ["BIS Basel", "Basel Committee"]},
         status="active",
     )
-    session.add_all([cls_regulator, cls_cb, entity_bis])
+    session.add(entity_bis)
     await session.flush()
 
     return ws_id, prof_id, doc, release, entity_bis
@@ -163,7 +164,7 @@ async def test_semantic_expansion_service_composes_skos_ontology_entity() -> (
             "ontology",
             "entity",
         }
-        assert str(release.id) in trace["release_ids"]
+        assert str(release.release_id) in trace["release_ids"]
         assert expanded_q.original_query_text == query.query_text
         assert len(expanded_q.expanded_term_weights) >= 3
 
@@ -176,7 +177,9 @@ async def test_semantic_expansion_service_composes_skos_ontology_entity() -> (
         )
         assert "Financial Regulator" in by_term
         assert by_term["Financial Regulator"]["source_type"] == "ontology_class"
-        assert by_term["Financial Regulator"]["release_id"] == str(release.id)
+        assert by_term["Financial Regulator"]["release_id"] == str(
+            release.release_id
+        )
         assert "Bank for International Settlements" in by_term
         assert (
             by_term["Bank for International Settlements"]["entity_id"]
@@ -216,6 +219,8 @@ async def test_pipeline_recall_gain_and_exact_term_top1_non_regression() -> (
                 "The Bank for International Settlements acts as a Financial "
                 "Regulator coordinating global liquidity."
             ),
+            embedding_model="MockDeterministicEmbeddingService",
+            embedding_dim=16,
             checksum="1" * 64,
             chunker_name="structural",
             chunker_version="1.0.0",
@@ -236,6 +241,8 @@ async def test_pipeline_recall_gain_and_exact_term_top1_non_regression() -> (
                 "Clause ISO-27001-AC-4 mandates T1 Capital monitoring every "
                 "quarter."
             ),
+            embedding_model="MockDeterministicEmbeddingService",
+            embedding_dim=16,
             checksum="2" * 64,
             chunker_name="structural",
             chunker_version="1.0.0",
@@ -256,6 +263,8 @@ async def test_pipeline_recall_gain_and_exact_term_top1_non_regression() -> (
                 "Tier 1 Capital, Core Capital, Capital Requirements, and "
                 "Prudential Capital standards apply globally."
             ),
+            embedding_model="MockDeterministicEmbeddingService",
+            embedding_dim=16,
             checksum="3" * 64,
             chunker_name="structural",
             chunker_version="1.0.0",

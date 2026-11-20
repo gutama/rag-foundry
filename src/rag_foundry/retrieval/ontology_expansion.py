@@ -262,6 +262,10 @@ def format_expanded_lexical_query(
 ) -> str:
     """Format original + expanded terms into a safe OR lexical query.
 
+    Preserves ``original_query`` unquoted (retaining user-supplied quotes and
+    multi-term AND semantics in PostgreSQL ``websearch_to_tsquery``) while
+    quoting added expansion terms so multi-word synonyms match cleanly.
+
     Args:
         original_query: Unmodified user query text.
         expanded_terms: Full list of terms (original first).
@@ -269,11 +273,17 @@ def format_expanded_lexical_query(
     Returns:
         Formatted lexical query string preserving the original query.
     """
+    orig_clean = original_query.strip()
     if len(expanded_terms) <= 1:
-        return original_query
+        return orig_clean or original_query
 
     parts: List[str] = []
+    if orig_clean:
+        parts.append(orig_clean)
+
     for item in expanded_terms:
+        if item.relationship == "original":
+            continue
         clean = item.term.replace('"', "").strip()
         if clean:
             parts.append(f'"{clean}"')
@@ -343,9 +353,10 @@ def _candidate_rank_key(
 class OntologyQueryExpander:
     """Expands queries from approved ontology releases with full provenance.
 
-    Reads only ``approved`` ``OntologyReleaseRecord`` rows and ``active`` class
-    and property records; draft and deprecated releases/terms are strictly
-    ignored.
+    Reads only ``approved`` ``OntologyReleaseRecord`` rows and ``approved``
+    class and property records matching ``TermStatus`` and
+    ``OntologyRegistry.publish()``; draft and deprecated releases/terms are
+    strictly ignored.
     """
 
     def __init__(
@@ -477,11 +488,11 @@ class OntologyQueryExpander:
         policy: ExpansionPolicy,
         enabled: Set[str],
     ) -> List[SemanticExpansionTerm]:
-        """Expand matching active classes and properties in one release."""
+        """Expand matching approved classes and properties in one release."""
         active_classes: Dict[str, OntologyClassRecord] = {
             cls.uri: cls
             for cls in sorted(release.classes, key=lambda c: c.uri)
-            if cls.status == "active"
+            if cls.status == "approved"
         }
         children_by_parent: Dict[str, List[str]] = {}
         for cls_uri, cls in active_classes.items():
@@ -494,7 +505,7 @@ class OntologyQueryExpander:
         active_props: Dict[str, OntologyPropertyRecord] = {
             prop.uri: prop
             for prop in sorted(release.properties, key=lambda p: p.uri)
-            if prop.status == "active"
+            if prop.status == "approved"
         }
         inverses_by_uri: Dict[str, List[str]] = {}
         for prop_uri, prop in active_props.items():
@@ -505,7 +516,7 @@ class OntologyQueryExpander:
 
         candidates: List[SemanticExpansionTerm] = []
 
-        # 1. Match active classes and traverse bounded parent/child hierarchy
+        # 1. Match approved classes and traverse bounded parent/child hierarchy
         for cls_uri, cls in active_classes.items():
             all_labels = select_labels(cls.preferred_labels or {}, None)
             matched_labels = [

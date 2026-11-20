@@ -6,157 +6,145 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from rag_foundry.db.models import (
-    Base,
-    OntologyClassRecord,
-    OntologyPropertyRecord,
-    OntologyReleaseRecord,
-)
+from rag_foundry.db.models import Base
 from rag_foundry.db.session import get_sessionmaker
+from rag_foundry.ontology.models import OntologyClass, OntologyProperty
+from rag_foundry.ontology.registry import OntologyRegistry
 
 
 async def _seed_ontology_releases(session):
-    """Create approved, draft, and deprecated ontology releases for testing."""
-    now = datetime.now(timezone.utc)
+    """Create approved, draft, and deprecated releases via OntologyRegistry."""
+    registry = OntologyRegistry(session)
 
-    approved = OntologyReleaseRecord(
-        id=uuid.uuid4(),
+    # 1. Approved release published through OntologyRegistry (status='approved')
+    approved_draft = await registry.create_draft(
         ontology_uri="https://example.org/onto/institutional",
         version="1.0.0",
         title="Institutional Governance Ontology",
-        status="approved",
-        published_at=now,
     )
-    draft = OntologyReleaseRecord(
-        id=uuid.uuid4(),
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/Entity",
+            preferred_labels={"en": "Institutional Entity"},
+        ),
+    )
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/Organization",
+            preferred_labels={"en": "Organization", "fr": "Organisation"},
+            parent_class_uris=["https://example.org/onto/Entity"],
+        ),
+    )
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/CentralBank",
+            preferred_labels={"en": "Central Bank", "id": "Bank Sentral"},
+            parent_class_uris=["https://example.org/onto/Organization"],
+        ),
+    )
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/RegionalReserve",
+            preferred_labels={"en": "Regional Reserve"},
+            parent_class_uris=["https://example.org/onto/CentralBank"],
+        ),
+    )
+    await registry.add_class(
+        approved_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/OldBank",
+            preferred_labels={"en": "Legacy Shadow Bank"},
+            parent_class_uris=["https://example.org/onto/CentralBank"],
+        ),
+    )
+    await registry.deprecate_term(
+        approved_draft.release_id, "https://example.org/onto/OldBank"
+    )
+    await registry.add_property(
+        approved_draft.release_id,
+        OntologyProperty(
+            uri="https://example.org/onto/regulatedBy",
+            preferred_labels={"en": "regulated by"},
+            property_type="object",
+            domain_class_uris=["https://example.org/onto/Organization"],
+            range_class_uris=["https://example.org/onto/CentralBank"],
+        ),
+    )
+    await registry.add_property(
+        approved_draft.release_id,
+        OntologyProperty(
+            uri="https://example.org/onto/regulates",
+            preferred_labels={"en": "regulates", "id": "mengatur"},
+            property_type="object",
+            domain_class_uris=["https://example.org/onto/CentralBank"],
+            range_class_uris=["https://example.org/onto/Organization"],
+            inverse_property_uri="https://example.org/onto/regulatedBy",
+        ),
+    )
+    await registry.add_property(
+        approved_draft.release_id,
+        OntologyProperty(
+            uri="https://example.org/onto/legacyControls",
+            preferred_labels={"en": "legacy controls"},
+            property_type="object",
+            inverse_property_uri="https://example.org/onto/regulates",
+        ),
+    )
+    await registry.deprecate_term(
+        approved_draft.release_id, "https://example.org/onto/legacyControls"
+    )
+    approved = await registry.publish(approved_draft.release_id)
+
+    # 2. Unpublished draft release (MUST NEVER be expanded)
+    draft = await registry.create_draft(
         ontology_uri="https://example.org/onto/institutional",
         version="2.0.0-draft",
         title="Unapproved Draft Ontology",
-        status="draft",
     )
-    deprecated = OntologyReleaseRecord(
-        id=uuid.uuid4(),
+    await registry.add_class(
+        draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/DraftParent",
+            preferred_labels={"en": "Secret Draft Authority"},
+        ),
+    )
+    await registry.add_class(
+        draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/DraftBank",
+            preferred_labels={"en": "Central Bank"},
+            parent_class_uris=["https://example.org/onto/DraftParent"],
+        ),
+    )
+
+    # 3. Deprecated release (MUST NEVER be expanded)
+    dep_draft = await registry.create_draft(
         ontology_uri="https://example.org/onto/legacy",
         version="0.9.0",
         title="Deprecated Legacy Ontology",
-        status="deprecated",
     )
-    session.add_all([approved, draft, deprecated])
-    await session.flush()
+    await registry.add_class(
+        dep_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/DepParent",
+            preferred_labels={"en": "Deprecated Authority"},
+        ),
+    )
+    await registry.add_class(
+        dep_draft.release_id,
+        OntologyClass(
+            uri="https://example.org/onto/DepBank",
+            preferred_labels={"en": "Central Bank"},
+            parent_class_uris=["https://example.org/onto/DepParent"],
+        ),
+    )
+    await registry.publish(dep_draft.release_id)
+    deprecated = await registry.deprecate_release(dep_draft.release_id)
 
-    # Approved hierarchy: Entity -> Organization -> Central Bank -> Regional Reserve
-    cls_entity = OntologyClassRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/Entity",
-        preferred_labels={"en": "Institutional Entity"},
-        parent_class_uris=[],
-        status="active",
-    )
-    cls_org = OntologyClassRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/Organization",
-        preferred_labels={"en": "Organization", "fr": "Organisation"},
-        parent_class_uris=["https://example.org/onto/Entity"],
-        status="active",
-    )
-    cls_bank = OntologyClassRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/CentralBank",
-        preferred_labels={"en": "Central Bank", "id": "Bank Sentral"},
-        parent_class_uris=["https://example.org/onto/Organization"],
-        status="active",
-    )
-    cls_reserve = OntologyClassRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/RegionalReserve",
-        preferred_labels={"en": "Regional Reserve"},
-        parent_class_uris=["https://example.org/onto/CentralBank"],
-        status="active",
-    )
-    cls_dep_child = OntologyClassRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/OldBank",
-        preferred_labels={"en": "Legacy Shadow Bank"},
-        parent_class_uris=["https://example.org/onto/CentralBank"],
-        status="deprecated",
-    )
-
-    # Approved properties with inverse relationship
-    prop_regulates = OntologyPropertyRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/regulates",
-        preferred_labels={"en": "regulates", "id": "mengatur"},
-        property_type="object",
-        domain_class_uris=["https://example.org/onto/CentralBank"],
-        range_class_uris=["https://example.org/onto/Organization"],
-        inverse_property_uri="https://example.org/onto/regulatedBy",
-        status="active",
-    )
-    prop_regulated_by = OntologyPropertyRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/regulatedBy",
-        preferred_labels={"en": "regulated by"},
-        property_type="object",
-        domain_class_uris=["https://example.org/onto/Organization"],
-        range_class_uris=["https://example.org/onto/CentralBank"],
-        inverse_property_uri="https://example.org/onto/regulates",
-        status="active",
-    )
-    prop_deprecated = OntologyPropertyRecord(
-        release_id=approved.id,
-        uri="https://example.org/onto/legacyControls",
-        preferred_labels={"en": "legacy controls"},
-        property_type="object",
-        inverse_property_uri="https://example.org/onto/regulates",
-        status="deprecated",
-    )
-
-    # Draft & deprecated releases contain terms that MUST NEVER be expanded
-    cls_draft = OntologyClassRecord(
-        release_id=draft.id,
-        uri="https://example.org/onto/DraftBank",
-        preferred_labels={"en": "Central Bank"},
-        parent_class_uris=["https://example.org/onto/DraftParent"],
-        status="active",
-    )
-    cls_draft_parent = OntologyClassRecord(
-        release_id=draft.id,
-        uri="https://example.org/onto/DraftParent",
-        preferred_labels={"en": "Secret Draft Authority"},
-        parent_class_uris=[],
-        status="active",
-    )
-    cls_dep_release = OntologyClassRecord(
-        release_id=deprecated.id,
-        uri="https://example.org/onto/DepBank",
-        preferred_labels={"en": "Central Bank"},
-        parent_class_uris=["https://example.org/onto/DepParent"],
-        status="active",
-    )
-    cls_dep_parent = OntologyClassRecord(
-        release_id=deprecated.id,
-        uri="https://example.org/onto/DepParent",
-        preferred_labels={"en": "Deprecated Authority"},
-        parent_class_uris=[],
-        status="active",
-    )
-
-    session.add_all(
-        [
-            cls_entity,
-            cls_org,
-            cls_bank,
-            cls_reserve,
-            cls_dep_child,
-            prop_regulates,
-            prop_regulated_by,
-            prop_deprecated,
-            cls_draft,
-            cls_draft_parent,
-            cls_dep_release,
-            cls_dep_parent,
-        ]
-    )
     await session.commit()
     return approved, draft, deprecated
 
@@ -205,21 +193,24 @@ async def test_ontology_expander_matches_approved_classes_and_ignores_drafts() -
 
         assert trace.expansion_applied is True
         assert trace.original_query == "Central Bank policy"
-        assert str(approved.id) in trace.release_ids
+        assert str(approved.release_id) in trace.release_ids
+        # Original query stays unquoted in expanded_query while added terms
+        # are quoted so PostgreSQL websearch_to_tsquery preserves AND semantics.
+        assert trace.expanded_query.startswith("Central Bank policy OR ")
 
         term_map = {t.term: t for t in trace.terms}
         assert "Central Bank policy" in term_map
         assert term_map["Central Bank policy"].weight == 1.0
         assert term_map["Central Bank policy"].relationship == "original"
 
-        # Depth 1 includes direct parent (Organization) and active child (Regional Reserve)
+        # Depth 1 includes direct parent (Organization) and approved child
         assert "Organization" in term_map
         assert term_map["Organization"].relationship == "ontology_parent"
         assert (
             term_map["Organization"].source_uri
             == "https://example.org/onto/Organization"
         )
-        assert term_map["Organization"].release_id == approved.id
+        assert term_map["Organization"].release_id == approved.release_id
         assert term_map["Organization"].hop_depth == 1
 
         assert "Regional Reserve" in term_map
@@ -231,7 +222,7 @@ async def test_ontology_expander_matches_approved_classes_and_ignores_drafts() -
 
         # Depth 2 grandparent excluded at max_depth=1
         assert "Institutional Entity" not in term_map
-        # Deprecated class, draft release, and deprecated release strictly excluded
+        # Deprecated class, draft release, and deprecated release excluded
         assert "Legacy Shadow Bank" not in term_map
         assert "Secret Draft Authority" not in term_map
         assert "Deprecated Authority" not in term_map
@@ -252,7 +243,7 @@ async def test_ontology_expander_matches_approved_classes_and_ignores_drafts() -
 
 @pytest.mark.asyncio
 async def test_ontology_expander_properties_inverses_multilingual_and_budget() -> None:
-    """Expands active properties, inverses, multilingual labels, and enforces budget."""
+    """Expands approved properties, inverses, multilingual labels & budget."""
     from rag_foundry.retrieval.ontology_expansion import (
         ExpansionPolicy,
         OntologyQueryExpander,
@@ -273,14 +264,14 @@ async def test_ontology_expander_properties_inverses_multilingual_and_budget() -
         assert term_map["Bank Sentral"].relationship == "preferred_label"
         assert "mengatur" in term_map
         assert term_map["mengatur"].relationship == "ontology_property"
-        # Active inverse property expanded; deprecated inverse ignored
+        # Approved inverse property expanded; deprecated inverse ignored
         assert "regulated by" in term_map
         assert term_map["regulated by"].relationship == "ontology_inverse"
         assert (
             term_map["regulated by"].source_uri
             == "https://example.org/onto/regulatedBy"
         )
-        assert term_map["regulated by"].release_id == approved.id
+        assert term_map["regulated by"].release_id == approved.release_id
         assert "legacy controls" not in term_map
 
         # Deterministic ordering across repeated calls
@@ -303,13 +294,19 @@ async def test_ontology_expander_properties_inverses_multilingual_and_budget() -
         assert metrics["expansion_applied"] is True
         assert metrics["expanded_term_count"] == 3
         assert metrics["expanded_terms"][1]["source_uri"] is not None
-        assert metrics["expanded_terms"][1]["release_id"] == str(approved.id)
+        assert metrics["expanded_terms"][1]["release_id"] == str(
+            approved.release_id
+        )
 
 
 @pytest.mark.asyncio
 async def test_ontology_expander_release_pinning_and_no_match() -> None:
     """Pinned release_ids restricts scope; unmatched query stays unchanged."""
-    from rag_foundry.retrieval.ontology_expansion import OntologyQueryExpander
+    from rag_foundry.retrieval.ontology_expansion import (
+        OntologyQueryExpander,
+        SemanticExpansionTerm,
+        format_expanded_lexical_query,
+    )
 
     sessionmaker = get_sessionmaker("sqlite+aiosqlite:///:memory:")
     async with sessionmaker() as session:
@@ -321,7 +318,7 @@ async def test_ontology_expander_release_pinning_and_no_match() -> None:
 
         # Pinning to a draft release yields zero expansion
         draft_trace = await expander.expand_query(
-            "Central Bank", release_ids=[draft.id]
+            "Central Bank", release_ids=[draft.release_id]
         )
         assert draft_trace.expansion_applied is False
         assert draft_trace.expanded_query == "Central Bank"
@@ -329,9 +326,31 @@ async def test_ontology_expander_release_pinning_and_no_match() -> None:
 
         # Pinning to approved release succeeds, unmatched query stays untouched
         no_match = await expander.expand_query(
-            "Quantum entanglement", release_ids=[approved.id]
+            "Quantum entanglement", release_ids=[approved.release_id]
         )
         assert no_match.expansion_applied is False
         assert no_match.expanded_query == "Quantum entanglement"
         assert len(no_match.terms) == 1
+
+        # Formatting keeps user quotes/operators intact on the original query
+        formatted = format_expanded_lexical_query(
+            '"revenue recognition" subsidiaries -draft',
+            [
+                SemanticExpansionTerm(
+                    term='"revenue recognition" subsidiaries -draft',
+                    weight=1.0,
+                    relationship="original",
+                    source_type="original",
+                ),
+                SemanticExpansionTerm(
+                    term="IFRS 15",
+                    weight=0.7,
+                    relationship="skos_altLabel",
+                    source_type="skos_concept",
+                ),
+            ],
+        )
+        assert formatted == (
+            '"revenue recognition" subsidiaries -draft OR "IFRS 15"'
+        )
 
