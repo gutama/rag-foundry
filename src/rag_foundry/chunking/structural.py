@@ -389,7 +389,10 @@ class StructuralChunker:
                 ):
                     units.append((elem, seg, is_hard_slice))
 
-        current_items: List[Tuple[DocumentElement, str]] = []
+        # Each entry tracks (element, start_offset, end_offset) inside
+        # current_text so multi-element overlap tails retain complete page,
+        # element_id, and bounding-box provenance.
+        current_items: List[Tuple[DocumentElement, int, int]] = []
         current_text = ""
 
         def _emit_current() -> None:
@@ -426,7 +429,7 @@ class StructuralChunker:
                 continue
 
             if not current_text:
-                current_items = [(elem, seg)]
+                current_items = [(elem, 0, len(seg))]
                 current_text = seg
                 continue
 
@@ -434,7 +437,8 @@ class StructuralChunker:
             sep = " " if same_elem else "\n\n"
             candidate = f"{current_text}{sep}{seg}"
             if len(candidate) <= target_chars:
-                current_items.append((elem, seg))
+                seg_start = len(current_text) + len(sep)
+                current_items.append((elem, seg_start, seg_start + len(seg)))
                 current_text = candidate
                 continue
 
@@ -451,10 +455,24 @@ class StructuralChunker:
                 current_text, max_overlap
             )
             if overlap_text:
-                current_items = [(prev_elem, overlap_text), (elem, seg)]
+                overlap_start = len(current_text) - len(overlap_text)
+                carried_items: List[Tuple[DocumentElement, int, int]] = [
+                    (
+                        item_elem,
+                        max(0, item_start - overlap_start),
+                        item_end - overlap_start,
+                    )
+                    for item_elem, item_start, item_end in current_items
+                    if item_end > overlap_start
+                ]
+                if not carried_items:
+                    carried_items = [(prev_elem, 0, len(overlap_text))]
+                seg_start = len(overlap_text) + len(overlap_sep)
+                carried_items.append((elem, seg_start, seg_start + len(seg)))
+                current_items = carried_items
                 current_text = f"{overlap_text}{overlap_sep}{seg}"
             else:
-                current_items = [(elem, seg)]
+                current_items = [(elem, 0, len(seg))]
                 current_text = seg
 
         _emit_current()

@@ -598,8 +598,9 @@ async def test_end_to_end_parsing_to_chunking_across_pdf_docx_xlsx(
         sample_pdf_bytes, "report.pdf", "application/pdf"
     )
     pdf_chunks = chunker.chunk_document(pdf_doc)
-    assert len(pdf_chunks) >= 1
-    assert any("Institutional Architecture Report" in c.text for c in pdf_chunks)
+    assert len(pdf_chunks) == 1
+    assert pdf_chunks[0].section_path == ["Institutional Architecture Report"]
+    assert "canonical parsing model" in pdf_chunks[0].text
     assert all(c.page_numbers == [1] for c in pdf_chunks)
     assert any(len(c.bounding_boxes) >= 1 for c in pdf_chunks)
     for chunk in pdf_chunks:
@@ -667,3 +668,112 @@ def test_provenance_fallback_page_extents_and_deduplication() -> None:
     box = chunks[0].bounding_boxes[0]
     assert box.page == 1
     assert pytest.approx((box.l, box.t, box.r, box.b)) == (0.1, 0.1, 1.0, 1.0)
+
+
+def test_overlap_tail_preserves_multi_page_and_element_provenance() -> None:
+    """Overlap spanning multiple elements preserves all pages and bboxes."""
+    elem_p1 = DocumentElement(
+        element_type="paragraph",
+        sequence_number=1,
+        text="Alpha beta gamma delta.",
+        page_number=1,
+        bounding_box=(0.1, 0.1, 0.9, 0.2),
+    )
+    elem_p2 = DocumentElement(
+        element_type="paragraph",
+        sequence_number=2,
+        text="Epsilon zeta.",
+        page_number=2,
+        bounding_box=(0.1, 0.2, 0.9, 0.3),
+    )
+    elem_p3 = DocumentElement(
+        element_type="paragraph",
+        sequence_number=3,
+        text="X" * 45,
+        page_number=3,
+        bounding_box=(0.1, 0.3, 0.9, 0.4),
+    )
+
+    chunker = StructuralChunker(
+        ChunkingConfig(target_chars=60, max_chars=120, overlap_chars=40)
+    )
+    chunks = chunker.chunk_document(_make_doc([elem_p1, elem_p2, elem_p3]))
+
+    assert len(chunks) == 2
+    assert "beta gamma delta." in chunks[1].text
+    assert "Epsilon zeta." in chunks[1].text
+    assert chunks[1].page_numbers == [1, 2, 3]
+    assert elem_p1.element_id in chunks[1].element_ids
+    assert elem_p2.element_id in chunks[1].element_ids
+    assert elem_p3.element_id in chunks[1].element_ids
+    assert [b.page for b in chunks[1].bounding_boxes] == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_docx_table_body_order_and_pdf_font_heading_detection() -> None:
+    """DOCX tables keep section_path; PDF short lines aren't bogus H1s."""
+    import io
+
+    import docx
+    import fitz
+
+    from rag_foundry.parsing.docling_adapter import DoclingParserAdapter
+    from rag_foundry.parsing.native_pdf import NativePDFParserAdapter
+
+    # 1. DOCX: Revenue heading -> table -> Appendix heading -> paragraph
+    word_doc = docx.Document()
+    word_doc.add_heading("Revenue", level=1)
+    tbl = word_doc.add_table(rows=2, cols=2)
+    tbl.rows[0].cells[0].text = "Quarter"
+    tbl.rows[0].cells[1].text = "Amount"
+    tbl.rows[1].cells[0].text = "Q1"
+    tbl.rows[1].cells[1].text = "$2M"
+    word_doc.add_heading("Appendix", level=1)
+    word_doc.add_paragraph("Notes and methodology.")
+    docx_buf = io.BytesIO()
+    word_doc.save(docx_buf)
+
+    parsed_docx = await DoclingParserAdapter().parse(
+        docx_buf.getvalue(),
+        "report.docx",
+        (
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+    )
+    docx_chunks = StructuralChunker().chunk_document(parsed_docx)
+    table_chunks = [c for c in docx_chunks if "table" in c.element_types]
+    assert len(table_chunks) == 1
+    assert table_chunks[0].section_path == ["Revenue"]
+
+    # 2. PDF: 18pt H1, 14pt H2, and 11pt short sentence/bullet/caption
+    pdf = fitz.open()
+    page = pdf.new_page()
+    page.insert_text((50, 50), "Annual Risk Report", fontsize=18)
+    page.insert_text((50, 90), "Liquidity Controls", fontsize=14)
+    page.insert_text((50, 130), "Buffers remain strong.", fontsize=11)
+    page.insert_text((50, 160), "- LCR stayed above 100%.", fontsize=11)
+    page.insert_text((50, 190), "Figure 1: Quarterly trend", fontsize=11)
+    pdf_buf = io.BytesIO()
+    pdf.save(pdf_buf)
+    pdf.close()
+
+    parsed_pdf = await NativePDFParserAdapter().parse(
+        pdf_buf.getvalue(), "risk.pdf", "application/pdf"
+    )
+    headings = [e for e in parsed_pdf.elements if e.element_type == "heading"]
+    assert [h.text for h in headings] == [
+        "Annual Risk Report",
+        "Liquidity Controls",
+    ]
+    assert [h.metadata["heading_level"] for h in headings] == [1, 2]
+
+    pdf_chunks = StructuralChunker().chunk_document(parsed_pdf)
+    assert len(pdf_chunks) == 1
+    assert pdf_chunks[0].section_path == [
+        "Annual Risk Report",
+        "Liquidity Controls",
+    ]
+    assert "Buffers remain strong." in pdf_chunks[0].text
+    assert "- LCR stayed above 100%." in pdf_chunks[0].text
+    assert "heading_only" not in pdf_chunks[0].metadata
