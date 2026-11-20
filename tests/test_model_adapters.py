@@ -306,13 +306,99 @@ def test_cross_encoder_reranker_normalization_tiebreak_and_fallback(
     with pytest.raises(ImportError, match="rag-foundry\\[ml\\]"):
         strict_reranker.rerank("query", [c_c], top_k=1)
 
-    # 4. Explicit allow_fallback=True falls back cleanly to ScoringReranker
+    # 4. Explicit allow_fallback=True falls back cleanly and caches failure
+    load_attempts = 0
+    orig_import = builtins.__import__
+
+    def _counting_missing_st(name: str, *args: Any, **kwargs: Any) -> Any:
+        nonlocal load_attempts
+        if name == "sentence_transformers":
+            load_attempts += 1
+            raise ImportError("No module named 'sentence_transformers'")
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _counting_missing_st)
     fb_reranker = CrossEncoderReranker(
         model_name="cross-encoder/ms-marco-MiniLM-L-6-v2",
         allow_fallback=True,
     )
-    fb_ranked = fb_reranker.rerank("Top relevant", [c_a, c_c], top_k=2)
-    assert fb_ranked[0].chunk_id == id_c
+    for _ in range(3):
+        fb_ranked = fb_reranker.rerank("Top relevant", [c_a, c_c], top_k=2)
+        assert fb_ranked[0].chunk_id == id_c
+    # Failure is cached after the first attempt (never retried on every call)
+    assert load_attempts == 1
+
+
+def test_embedding_adapters_batching_for_server_limits() -> None:
+    """HttpEmbeddingService and SentenceTransformer split large inputs."""
+    from rag_foundry.retrieval.embeddings import (
+        HttpEmbeddingService,
+        SentenceTransformerEmbeddingService,
+    )
+
+    batch_sizes_seen: List[int] = []
+
+    def _batched_openai(
+        url: str,
+        payload: Dict[str, Any],
+        headers: Dict[str, str],
+        timeout: float,
+    ) -> Dict[str, Any]:
+        batch = payload["input"]
+        batch_sizes_seen.append(len(batch))
+        # Return reverse-indexed items to verify per-batch reordering
+        items = [
+            {"index": i, "embedding": [float(len(txt)), float(i)]}
+            for i, txt in enumerate(batch)
+        ]
+        items.reverse()
+        return {"data": items}
+
+    svc = HttpEmbeddingService(
+        base_url="http://tei.local:8080",
+        model_name="bge-small",
+        dimension=2,
+        provider="openai",
+        batch_size=2,
+        transport=_batched_openai,
+    )
+    texts = ["a", "bb", "ccc", "dddd", "eeeee"]
+    vectors = svc.embed_texts(texts)
+    assert batch_sizes_seen == [2, 2, 1]
+    assert vectors == [
+        [1.0, 0.0],
+        [2.0, 1.0],
+        [3.0, 0.0],
+        [4.0, 1.0],
+        [5.0, 0.0],
+    ]
+
+    with pytest.raises(ValueError, match="batch_size"):
+        HttpEmbeddingService(
+            base_url="http://x", model_name="m", dimension=2, batch_size=0
+        )
+
+    st_batches: List[int] = []
+
+    class _BatchedSTModel:
+        def encode(
+            self,
+            batch: List[str],
+            normalize_embeddings: bool = True,
+        ) -> List[List[float]]:
+            st_batches.append(len(batch))
+            return [[float(len(t)), 1.0] for t in batch]
+
+    st_svc = SentenceTransformerEmbeddingService(
+        dimension=2,
+        model=_BatchedSTModel(),
+        batch_size=2,
+    )
+    assert len(st_svc.embed_texts(texts)) == 5
+    assert st_batches == [2, 2, 1]
+
+    with pytest.raises(ValueError, match="batch_size"):
+        SentenceTransformerEmbeddingService(dimension=2, batch_size=0)
 
 
 def test_default_http_transport_and_payload_edge_cases(

@@ -1,11 +1,12 @@
 """Shared pre-retrieval ACL filters and session utilities for DB retrievers."""
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple, Union
 
 from pydantic import ValidationError
-from sqlalchemy import cast
+from sqlalchemy import Text, cast, literal
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
@@ -54,7 +55,9 @@ def build_chunk_acl_conditions(
     """Build SQL WHERE predicates enforcing pre-retrieval ACL isolation.
 
     Returns ``None`` when the filter fails closed (empty allowed security
-    domains or an explicit empty ``document_ids`` whitelist).
+    domains or an explicit empty ``document_ids`` whitelist). Metadata filters
+    enforce exact per-key JSON equality with key presence so PostgreSQL,
+    SQLite, and in-memory retrievers match identically.
 
     Args:
         query: RetrievalQuery specifying workspace, domains, and filters.
@@ -77,32 +80,53 @@ def build_chunk_acl_conditions(
         conditions.append(Chunk.document_version_id.in_(filt.document_ids))
 
     if filt.metadata_filters and dialect_name == "postgresql":
-        conditions.append(
-            cast(Chunk.chunk_metadata, postgresql.JSONB).contains(
-                filt.metadata_filters
+        jsonb_col = cast(Chunk.chunk_metadata, postgresql.JSONB)
+        for key in sorted(filt.metadata_filters.keys()):
+            val_json = json.dumps(filt.metadata_filters[key])
+            lhs = jsonb_col.op("->", return_type=postgresql.JSONB)(
+                literal(key, type_=Text())
             )
-        )
+            rhs = cast(literal(val_json, type_=Text()), postgresql.JSONB)
+            conditions.append(lhs == rhs)
 
     return conditions
+
+
+def _json_exact_equal(actual: Any, expected: Any) -> bool:
+    """Compare two JSON-compatible values using PostgreSQL JSONB ``=`` rules."""
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return type(actual) is type(expected) and actual == expected
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(
+            _json_exact_equal(actual[k], expected[k]) for k in actual
+        )
+    if isinstance(actual, list) and isinstance(expected, list):
+        return len(actual) == len(expected) and all(
+            _json_exact_equal(a, b) for a, b in zip(actual, expected)
+        )
+    return bool(actual == expected)
 
 
 def matches_metadata_filters(
     chunk_metadata: Optional[Dict[str, Any]],
     metadata_filters: Dict[str, Any],
 ) -> bool:
-    """Evaluate key-value metadata filter constraints in Python for SQLite.
+    """Evaluate exact per-key metadata filters matching PostgreSQL JSONB ``=``.
 
     Args:
         chunk_metadata: Persisted metadata dictionary on a Chunk row.
         metadata_filters: Required key-value pairs from RetrievalFilter.
 
     Returns:
-        True if every required key matches the chunk metadata value.
+        True if every required key is present and equals the expected value.
     """
     if not metadata_filters:
         return True
     meta = chunk_metadata or {}
-    return all(meta.get(k) == v for k, v in metadata_filters.items())
+    return all(
+        k in meta and _json_exact_equal(meta[k], v)
+        for k, v in metadata_filters.items()
+    )
 
 
 def parse_chunk_bounding_boxes(raw_boxes: Any) -> List[BoundingBox]:

@@ -137,11 +137,12 @@ class RetrievalPipeline:
             top_k=query.top_k * 2,
         )
 
-        # Step 5: Candidate Reranking
-        reranked_chunks = self.reranker.rerank(
-            query=query.query_text,
-            candidates=fused_candidates,
-            top_k=query.top_k,
+        # Step 5: Candidate Reranking (offloaded so neural models don't block)
+        reranked_chunks = await asyncio.to_thread(
+            self.reranker.rerank,
+            query.query_text,
+            fused_candidates,
+            query.top_k,
         )
 
         # Step 6: Grounded Evidence Citation Assembly

@@ -4,6 +4,7 @@ import abc
 import hashlib
 import json
 import math
+import threading
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -140,6 +141,27 @@ class MockDeterministicEmbeddingService(EmbeddingService):
         return [self._generate_vector(t) for t in texts]
 
 
+def resolve_embedding_model_name(
+    embedding_service: EmbeddingService,
+    override: Optional[str] = None,
+) -> str:
+    """Resolve canonical embedding model identifier shared by index & query.
+
+    Args:
+        embedding_service: Active EmbeddingService instance.
+        override: Optional explicit model name override.
+
+    Returns:
+        Non-empty model identifier string.
+    """
+    if override is not None and override.strip():
+        return override.strip()
+    attr_name = getattr(embedding_service, "model_name", None)
+    if isinstance(attr_name, str) and attr_name.strip():
+        return attr_name.strip()
+    return type(embedding_service).__name__
+
+
 class HttpEmbeddingService(EmbeddingService):
     """HTTP embedding adapter for local/air-gapped Ollama and OpenAI servers.
 
@@ -160,6 +182,7 @@ class HttpEmbeddingService(EmbeddingService):
         timeout_seconds: float = 30.0,
         headers: Optional[Dict[str, str]] = None,
         transport: Optional[HttpTransport] = None,
+        batch_size: int = 32,
     ) -> None:
         """Initialize HttpEmbeddingService.
 
@@ -172,6 +195,7 @@ class HttpEmbeddingService(EmbeddingService):
             timeout_seconds: HTTP request timeout in seconds.
             headers: Optional extra HTTP headers.
             transport: Optional callable overriding the HTTP POST transport.
+            batch_size: Maximum texts sent per HTTP request (default 32).
 
         Raises:
             ValueError: If configuration parameters are invalid.
@@ -190,6 +214,8 @@ class HttpEmbeddingService(EmbeddingService):
             raise ValueError("Embedding dimension must be positive.")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive.")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive.")
 
         self._base_url = base_url.strip().rstrip("/")
         self.model_name = model_name.strip()
@@ -197,6 +223,7 @@ class HttpEmbeddingService(EmbeddingService):
         self.provider = normalized_provider
         self._api_key = api_key
         self.timeout_seconds = timeout_seconds
+        self.batch_size = batch_size
         self._headers = dict(headers) if headers is not None else {}
         self._transport = (
             transport if transport is not None else _default_http_transport
@@ -290,7 +317,7 @@ class HttpEmbeddingService(EmbeddingService):
         return validated
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Generate dense embeddings for a batch of texts via HTTP.
+        """Generate dense embeddings in size-bounded HTTP batches.
 
         Args:
             texts: Texts to embed.
@@ -301,17 +328,26 @@ class HttpEmbeddingService(EmbeddingService):
         if not texts:
             return []
 
-        payload: Dict[str, Any] = {
-            "model": self.model_name,
-            "input": list(texts),
-        }
-        response = self._transport(
-            self._endpoint_url(),
-            payload,
-            self._build_headers(),
-            self.timeout_seconds,
-        )
-        return self._parse_response(response, expected_count=len(texts))
+        endpoint = self._endpoint_url()
+        headers = self._build_headers()
+        all_vectors: List[List[float]] = []
+
+        for start in range(0, len(texts), self.batch_size):
+            batch = list(texts[start : start + self.batch_size])
+            payload: Dict[str, Any] = {
+                "model": self.model_name,
+                "input": batch,
+            }
+            response = self._transport(
+                endpoint,
+                payload,
+                headers,
+                self.timeout_seconds,
+            )
+            all_vectors.extend(
+                self._parse_response(response, expected_count=len(batch))
+            )
+        return all_vectors
 
     def embed_query(self, text: str) -> List[float]:
         """Generate a dense embedding vector for a single query string.
@@ -340,6 +376,7 @@ class SentenceTransformerEmbeddingService(EmbeddingService):
         normalize_embeddings: bool = True,
         model: Optional[Any] = None,
         model_loader: Optional[Callable[[str], Any]] = None,
+        batch_size: Optional[int] = None,
     ) -> None:
         """Initialize SentenceTransformerEmbeddingService.
 
@@ -350,18 +387,23 @@ class SentenceTransformerEmbeddingService(EmbeddingService):
             normalize_embeddings: Whether to L2-normalize model outputs.
             model: Optional pre-loaded model instance (useful for testing).
             model_loader: Optional callable returning a model for `model_name`.
+            batch_size: Optional max batch size for chunked local encoding.
 
         Raises:
-            ValueError: If `dimension` is provided and non-positive.
+            ValueError: If `dimension` or `batch_size` is non-positive.
         """
         if dimension is not None and dimension <= 0:
             raise ValueError("Embedding dimension must be positive.")
+        if batch_size is not None and batch_size <= 0:
+            raise ValueError("batch_size must be positive.")
         self.model_name = model_name
         self._dimension = dimension
         self.device = device
         self.normalize_embeddings = normalize_embeddings
         self._model = model
         self._model_loader = model_loader
+        self.batch_size = batch_size
+        self._load_lock = threading.Lock()
 
     def _load_model(self) -> Any:
         """Lazily load and cache the underlying SentenceTransformer model.
@@ -375,23 +417,27 @@ class SentenceTransformerEmbeddingService(EmbeddingService):
         if self._model is not None:
             return self._model
 
-        if self._model_loader is not None:
-            self._model = self._model_loader(self.model_name)
+        with self._load_lock:
+            if self._model is not None:
+                return self._model
+
+            if self._model_loader is not None:
+                self._model = self._model_loader(self.model_name)
+                return self._model
+
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as exc:
+                raise ImportError(
+                    "SentenceTransformerEmbeddingService requires optional ML "
+                    "dependencies. Install with: pip install 'rag-foundry[ml]'"
+                ) from exc
+
+            kwargs: Dict[str, Any] = {}
+            if self.device is not None:
+                kwargs["device"] = self.device
+            self._model = SentenceTransformer(self.model_name, **kwargs)
             return self._model
-
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError as exc:
-            raise ImportError(
-                "SentenceTransformerEmbeddingService requires optional ML "
-                "dependencies. Install with: pip install 'rag-foundry[ml]'"
-            ) from exc
-
-        kwargs: Dict[str, Any] = {}
-        if self.device is not None:
-            kwargs["device"] = self.device
-        self._model = SentenceTransformer(self.model_name, **kwargs)
-        return self._model
 
     @property
     def dimension(self) -> int:
@@ -477,11 +523,18 @@ class SentenceTransformerEmbeddingService(EmbeddingService):
             return []
 
         model = self._load_model()
-        raw = model.encode(
-            list(texts),
-            normalize_embeddings=self.normalize_embeddings,
-        )
-        return self._validate_vectors(raw, expected_count=len(texts))
+        step = self.batch_size if self.batch_size is not None else len(texts)
+        all_vectors: List[List[float]] = []
+        for start in range(0, len(texts), step):
+            batch = list(texts[start : start + step])
+            raw = model.encode(
+                batch,
+                normalize_embeddings=self.normalize_embeddings,
+            )
+            all_vectors.extend(
+                self._validate_vectors(raw, expected_count=len(batch))
+            )
+        return all_vectors
 
     def embed_query(self, text: str) -> List[float]:
         """Generate a dense embedding vector for a single query string.

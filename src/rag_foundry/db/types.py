@@ -1,13 +1,31 @@
 """Dialect-aware SQLAlchemy column types for PostgreSQL pgvector and FTS."""
 
+import os
 from typing import Any, List, Optional, Sequence
 
-from sqlalchemy import JSON, Text
+from sqlalchemy import JSON, Float, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import TypeDecorator, TypeEngine, UserDefinedType
 
-DEFAULT_EMBEDDING_DIM = 384
+
+def _resolve_default_embedding_dim() -> int:
+    """Read default embedding dimension from RAG_FOUNDRY_EMBEDDING_DIM."""
+    raw = os.getenv("RAG_FOUNDRY_EMBEDDING_DIM", "384").strip()
+    try:
+        dim = int(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid RAG_FOUNDRY_EMBEDDING_DIM value: {raw!r}."
+        ) from exc
+    if dim <= 0:
+        raise ValueError(
+            "RAG_FOUNDRY_EMBEDDING_DIM must be a positive integer."
+        )
+    return dim
+
+
+DEFAULT_EMBEDDING_DIM = _resolve_default_embedding_dim()
 
 
 class _PgVectorSQLType(UserDefinedType):
@@ -45,8 +63,8 @@ class VectorType(TypeDecorator):
         """Expose pgvector distance operators on mapped columns."""
 
         def cosine_distance(self, other: Any) -> Any:
-            """Return SQL expression using the pgvector ``<=>`` operator."""
-            return self.op("<=>")(other)
+            """Return Float SQL expression for pgvector ``<=>`` distance."""
+            return self.op("<=>", return_type=Float())(other)
 
     def __init__(self, dim: Optional[int] = None) -> None:
         """Initialize a dialect-aware vector column type.

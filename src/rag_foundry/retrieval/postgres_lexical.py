@@ -146,22 +146,33 @@ class PostgresLexicalRetriever:
 
         ts_query = func.websearch_to_tsquery(self.language, query_text)
         fallback_vec = func.to_tsvector(self.language, Chunk.text)
-        ts_match = or_(
-            Chunk.search_vector.op("@@")(ts_query),
-            and_(
-                Chunk.search_vector.is_(None),
-                fallback_vec.op("@@")(ts_query),
-            ),
-        )
         effective_vec = func.coalesce(Chunk.search_vector, fallback_vec)
         orig_text = (query.original_query_text or "").strip()
         if orig_text and orig_text.lower() != query_text.lower():
             orig_ts_query = func.websearch_to_tsquery(self.language, orig_text)
+            ts_match = or_(
+                Chunk.search_vector.op("@@")(orig_ts_query),
+                Chunk.search_vector.op("@@")(ts_query),
+                and_(
+                    Chunk.search_vector.is_(None),
+                    or_(
+                        fallback_vec.op("@@")(orig_ts_query),
+                        fallback_vec.op("@@")(ts_query),
+                    ),
+                ),
+            )
             rank_expr = (
                 func.ts_rank_cd(effective_vec, orig_ts_query) * 4.0
                 + func.ts_rank_cd(effective_vec, ts_query) * 0.25
             )
         else:
+            ts_match = or_(
+                Chunk.search_vector.op("@@")(ts_query),
+                and_(
+                    Chunk.search_vector.is_(None),
+                    fallback_vec.op("@@")(ts_query),
+                ),
+            )
             rank_expr = func.ts_rank_cd(effective_vec, ts_query)
 
         return (

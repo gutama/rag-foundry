@@ -96,9 +96,20 @@ def test_chunk_orm_postgresql_ddl_and_operators() -> None:
     assert "USING hnsw" in index_ddls["ix_chunks_embedding_hnsw"]
     assert "vector_cosine_ops" in index_ddls["ix_chunks_embedding_hnsw"]
 
-    # Verify pgvector <=> and PostgreSQL FTS @@ compile cleanly
-    dist_stmt = select(Chunk.id).order_by(
-        Chunk.embedding.cosine_distance([0.1, 0.2, 0.3])
+    # Verify pgvector <=> returns Float (not VectorType) and processes float
+    # results cleanly under PostgreSQL / asyncpg dialects (no TypeError).
+    from sqlalchemy import Float
+    from sqlalchemy.dialects.postgresql import asyncpg as pg_asyncpg
+
+    dist_expr = Chunk.embedding.cosine_distance([0.1, 0.2, 0.3])
+    assert isinstance(dist_expr.type, Float)
+    for dialect in (pg, pg_asyncpg.dialect()):
+        proc = dist_expr.type.result_processor(dialect, None)
+        processed = proc(0.123) if proc is not None else 0.123
+        assert processed == pytest.approx(0.123)
+
+    dist_stmt = select(Chunk.id, dist_expr.label("cosine_distance")).order_by(
+        dist_expr
     )
     compiled_dist = str(dist_stmt.compile(dialect=pg))
     assert "<=>" in compiled_dist
@@ -111,6 +122,27 @@ def test_chunk_orm_postgresql_ddl_and_operators() -> None:
     compiled_fts = str(fts_stmt.compile(dialect=pg))
     assert "@@" in compiled_fts
     assert "websearch_to_tsquery" in compiled_fts
+
+
+def test_default_embedding_dim_env_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RAG_FOUNDRY_EMBEDDING_DIM configures DEFAULT_EMBEDDING_DIM safely."""
+    from rag_foundry.db.types import _resolve_default_embedding_dim
+
+    monkeypatch.delenv("RAG_FOUNDRY_EMBEDDING_DIM", raising=False)
+    assert _resolve_default_embedding_dim() == 384
+
+    monkeypatch.setenv("RAG_FOUNDRY_EMBEDDING_DIM", "768")
+    assert _resolve_default_embedding_dim() == 768
+
+    monkeypatch.setenv("RAG_FOUNDRY_EMBEDDING_DIM", "0")
+    with pytest.raises(ValueError, match="positive"):
+        _resolve_default_embedding_dim()
+
+    monkeypatch.setenv("RAG_FOUNDRY_EMBEDDING_DIM", "not-an-int")
+    with pytest.raises(ValueError, match="Invalid"):
+        _resolve_default_embedding_dim()
 
 
 @pytest.mark.asyncio

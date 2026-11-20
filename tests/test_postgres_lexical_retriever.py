@@ -391,3 +391,55 @@ async def test_postgres_lexical_postgresql_execution_path() -> None:
     assert [r.chunk_id for r in res] == [c1.id]
     assert 0.5 <= res[0].score <= 1.0
     assert res[0].lexical_rank == 1
+
+
+def test_postgres_lexical_expanded_or_match_and_metadata_parity() -> None:
+    """Expanded PG FTS ORs original tsquery; metadata filters match exactly."""
+    from rag_foundry.retrieval.postgres_filters import matches_metadata_filters
+    from rag_foundry.retrieval.postgres_lexical import PostgresLexicalRetriever
+
+    sessionmaker = get_sessionmaker("sqlite+aiosqlite:///:memory:")
+    retriever = PostgresLexicalRetriever(session_or_factory=sessionmaker)
+    ws_id = uuid.uuid4()
+
+    # Finding 4: expanded query must OR original websearch_to_tsquery into
+    # WHERE so non-contiguous original-query hits are never dropped on PG.
+    expanded_q = RetrievalQuery(
+        query_text='revenue recognition policy for subsidiaries OR "IFRS 15"',
+        original_query_text="revenue recognition policy for subsidiaries",
+        expanded_term_weights={"ifrs 15": 0.7},
+        filter=RetrievalFilter(
+            workspace_id=ws_id,
+            security_domains=["public"],
+            metadata_filters={"tags": ["finance"], "classification": None},
+        ),
+        top_k=5,
+    )
+    stmt = retriever.build_postgresql_query(expanded_q)
+    assert stmt is not None
+    compiled = stmt.compile(dialect=postgresql.dialect())
+    sql = str(compiled)
+    where_clause = sql[sql.index("WHERE") : sql.index("ORDER BY")]
+
+    # Both original and expanded websearch_to_tsquery appear in WHERE @@ match
+    assert where_clause.count("websearch_to_tsquery") >= 4
+    assert "chunks.search_vector @@ websearch_to_tsquery" in where_clause
+    assert "->" in where_clause
+    assert "@>" not in where_clause
+
+    # Finding 10: exact metadata filter parity with PostgreSQL JSONB '='
+    assert matches_metadata_filters(
+        {"tags": ["finance"]}, {"tags": ["finance"]}
+    )
+    assert not matches_metadata_filters(
+        {"tags": ["finance", "hr"]}, {"tags": ["finance"]}
+    )
+    assert not matches_metadata_filters(
+        {"nested": {"a": 1, "b": 2}}, {"nested": {"a": 1}}
+    )
+    assert matches_metadata_filters(
+        {"classification": None}, {"classification": None}
+    )
+    assert not matches_metadata_filters({}, {"classification": None})
+    assert not matches_metadata_filters({"flag": 1}, {"flag": True})
+    assert matches_metadata_filters({"flag": True}, {"flag": True})

@@ -215,12 +215,13 @@ class LexicalRetriever:
 
             # 4. Metadata filters
             if query.filter.metadata_filters:
-                mismatch = False
-                for k, v in query.filter.metadata_filters.items():
-                    if rec.metadata.get(k) != v:
-                        mismatch = True
-                        break
-                if mismatch:
+                from rag_foundry.retrieval.postgres_filters import (
+                    matches_metadata_filters,
+                )
+
+                if not matches_metadata_filters(
+                    rec.metadata, query.filter.metadata_filters
+                ):
                     continue
 
             if use_expanded_scoring:

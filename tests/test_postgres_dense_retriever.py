@@ -154,7 +154,9 @@ async def test_postgres_dense_workspace_and_security_domain_isolation() -> None:
 
         emb = _StaticEmbeddingService({"q": [1.0, 0.0, 0.0, 0.0]})
         retriever = PostgresDenseRetriever(
-            session_or_factory=session, embedding_service=emb
+            session_or_factory=session,
+            embedding_service=emb,
+            embedding_model_name="stub",
         )
 
         results = await retriever.retrieve(
@@ -191,7 +193,9 @@ async def test_postgres_dense_workspace_and_security_domain_isolation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> None:
+async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> (
+    None
+):
     """Supports document_ids, metadata_filters, min score, and chunk_id ties."""
     from rag_foundry.retrieval.postgres_dense import PostgresDenseRetriever
 
@@ -219,6 +223,8 @@ async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> No
                 security_domain="general",
                 chunk_metadata={"category": "policy", "year": 2026},
                 embedding=[1.0, 0.0, 0.0, 0.0],
+                embedding_model="_StaticEmbeddingService",
+                embedding_dim=4,
                 checksum="1" * 64,
                 chunker_name="structural",
                 chunker_version="1.0.0",
@@ -233,6 +239,8 @@ async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> No
                 security_domain="general",
                 chunk_metadata={"category": "policy", "year": 2026},
                 embedding=[1.0, 0.0, 0.0, 0.0],
+                embedding_model="_StaticEmbeddingService",
+                embedding_dim=4,
                 checksum="2" * 64,
                 chunker_name="structural",
                 chunker_version="1.0.0",
@@ -247,6 +255,8 @@ async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> No
                 security_domain="general",
                 chunk_metadata={"category": "policy", "year": 2026},
                 embedding=[0.0, 1.0, 0.0, 0.0],
+                embedding_model="_StaticEmbeddingService",
+                embedding_dim=4,
                 checksum="3" * 64,
                 chunker_name="structural",
                 chunker_version="1.0.0",
@@ -261,6 +271,8 @@ async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> No
                 security_domain="general",
                 chunk_metadata={"category": "memo", "year": 2026},
                 embedding=[1.0, 0.0, 0.0, 0.0],
+                embedding_model="_StaticEmbeddingService",
+                embedding_dim=4,
                 checksum="4" * 64,
                 chunker_name="structural",
                 chunker_version="1.0.0",
@@ -289,7 +301,7 @@ async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> No
             session_or_factory=session, embedding_service=emb
         )
 
-        # Deterministic tie-breaking puts id_low before id_high, skips doc2/unembedded
+        # Deterministic tie-breaking puts id_low before id_high
         res = await retriever.retrieve(
             RetrievalQuery(
                 query_text="q",
@@ -322,13 +334,15 @@ async def test_postgres_dense_document_metadata_filters_and_tie_breaking() -> No
 
 
 def test_postgres_dense_compiles_pgvector_sql_with_acl_pushdown() -> None:
-    """PostgreSQL query pushes ACL WHERE clauses before <=> ORDER BY/LIMIT."""
+    """PostgreSQL query pushes ACL & model WHERE before <=> ORDER BY/LIMIT."""
     from rag_foundry.retrieval.postgres_dense import PostgresDenseRetriever
 
     sessionmaker = get_sessionmaker("sqlite+aiosqlite:///:memory:")
     emb = MockDeterministicEmbeddingService(dimension=4)
     retriever = PostgresDenseRetriever(
-        session_or_factory=sessionmaker, embedding_service=emb
+        session_or_factory=sessionmaker,
+        embedding_service=emb,
+        embedding_model_name="bge-small",
     )
 
     ws_id = uuid.uuid4()
@@ -339,7 +353,7 @@ def test_postgres_dense_compiles_pgvector_sql_with_acl_pushdown() -> None:
             workspace_id=ws_id,
             document_ids=[doc_id],
             security_domains=["public", "finance"],
-            metadata_filters={"region": "eu"},
+            metadata_filters={"region": "eu", "classification": None},
         ),
         top_k=7,
     )
@@ -358,7 +372,11 @@ def test_postgres_dense_compiles_pgvector_sql_with_acl_pushdown() -> None:
     assert "chunks.security_domain IN" in where_clause
     assert "chunks.document_version_id IN" in where_clause
     assert "chunks.embedding IS NOT NULL" in where_clause
-    assert "chunks.chunk_metadata" in where_clause
+    assert "chunks.embedding_model" in where_clause
+    assert "chunks.embedding_dim" in where_clause
+    # Exact per-key JSONB equality (not @> containment)
+    assert "->" in where_clause
+    assert "@>" not in where_clause
     assert "<=>" in order_clause
     assert "chunks.id ASC" in order_clause
 
@@ -374,8 +392,10 @@ def test_postgres_dense_compiles_pgvector_sql_with_acl_pushdown() -> None:
 
 
 @pytest.mark.asyncio
-async def test_postgres_dense_postgresql_execution_path_and_sessionmaker() -> None:
-    """PostgreSQL dialect branch converts <=> distances and sessionmaker works."""
+async def test_postgres_dense_postgresql_execution_path_and_sessionmaker() -> (
+    None
+):
+    """PostgreSQL branch sets HNSW iterative_scan and converts <=> distances."""
     from types import SimpleNamespace
 
     from rag_foundry.retrieval.postgres_dense import PostgresDenseRetriever
@@ -390,10 +410,15 @@ async def test_postgres_dense_postgresql_execution_path_and_sessionmaker() -> No
         text="High similarity PostgreSQL chunk",
         section_path=["Sec"],
         page_numbers=[1],
-        bounding_boxes=[{"page": 1, "l": 0.1, "t": 0.1, "r": 0.5, "b": 0.2}, {"bad": True}],
+        bounding_boxes=[
+            {"page": 1, "l": 0.1, "t": 0.1, "r": 0.5, "b": 0.2},
+            {"bad": True},
+        ],
         security_domain="public",
         chunk_metadata={},
         embedding=[1.0, 0.0, 0.0, 0.0],
+        embedding_model="_StaticEmbeddingService",
+        embedding_dim=4,
         checksum="x" * 64,
         chunker_name="structural",
         chunker_version="1.0.0",
@@ -408,6 +433,8 @@ async def test_postgres_dense_postgresql_execution_path_and_sessionmaker() -> No
         security_domain="public",
         chunk_metadata={},
         embedding=[0.0, 1.0, 0.0, 0.0],
+        embedding_model="_StaticEmbeddingService",
+        embedding_dim=4,
         checksum="y" * 64,
         chunker_name="structural",
         chunker_version="1.0.0",
@@ -451,7 +478,11 @@ async def test_postgres_dense_postgresql_execution_path_and_sessionmaker() -> No
             min_relevance_score=0.5,
         )
     )
-    assert len(fake_session.executed_stmts) == 1
+    # 1st statement sets hnsw.iterative_scan; 2nd executes the dense SELECT
+    assert len(fake_session.executed_stmts) == 2
+    assert "hnsw.iterative_scan = relaxed_order" in str(
+        fake_session.executed_stmts[0]
+    )
     assert [r.chunk_id for r in results] == [c1.id]
     assert results[0].score == 0.9
     assert len(results[0].bounding_boxes) == 1
@@ -459,4 +490,113 @@ async def test_postgres_dense_postgresql_execution_path_and_sessionmaker() -> No
     # Cosine edge cases (dimension mismatch, empty, zero norm)
     assert retriever._cosine_similarity([1.0, 0.0], [1.0]) == 0.0
     assert retriever._cosine_similarity([0.0, 0.0], [1.0, 0.0]) == 0.0
+
+    with pytest.raises(ValueError, match="hnsw_iterative_scan"):
+        PostgresDenseRetriever(
+            session_or_factory=lambda: fake_session,  # type: ignore[arg-type]
+            embedding_service=_StaticEmbeddingService({"q": [1.0]}),
+            hnsw_iterative_scan="invalid",
+        )
+    with pytest.raises(ValueError, match="hnsw_ef_search"):
+        PostgresDenseRetriever(
+            session_or_factory=lambda: fake_session,  # type: ignore[arg-type]
+            embedding_service=_StaticEmbeddingService({"q": [1.0]}),
+            hnsw_ef_search=0,
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_dense_filters_by_embedding_model_and_nonblocking() -> (
+    None
+):
+    """Dense search never mixes vectors across models and offloads blocking."""
+    import asyncio
+    import time
+
+    from rag_foundry.retrieval.embeddings import HttpEmbeddingService
+    from rag_foundry.retrieval.postgres_dense import PostgresDenseRetriever
+
+    sessionmaker = get_sessionmaker("sqlite+aiosqlite:///:memory:")
+    async with sessionmaker() as session:
+        conn = await session.connection()
+        await conn.run_sync(Base.metadata.create_all)
+
+        ws = uuid.uuid4()
+        doc = await _seed_document(session, ws)
+
+        c_old_model = Chunk(
+            id=uuid.uuid4(),
+            document_version_id=doc.id,
+            workspace_id=ws,
+            chunk_index=0,
+            text="Embedded with old model A",
+            security_domain="public",
+            chunk_metadata={},
+            embedding=[1.0, 0.0, 0.0, 0.0],
+            embedding_model="old-model-a",
+            embedding_dim=4,
+            checksum="1" * 64,
+            chunker_name="structural",
+            chunker_version="1.0.0",
+            semantic_profile_id=doc.semantic_profile_id,
+        )
+        c_new_model = Chunk(
+            id=uuid.uuid4(),
+            document_version_id=doc.id,
+            workspace_id=ws,
+            chunk_index=1,
+            text="Embedded with new model B",
+            security_domain="public",
+            chunk_metadata={},
+            embedding=[0.6, 0.8, 0.0, 0.0],
+            embedding_model="bge-small",
+            embedding_dim=4,
+            checksum="2" * 64,
+            chunker_name="structural",
+            chunker_version="1.0.0",
+            semantic_profile_id=doc.semantic_profile_id,
+        )
+        session.add_all([c_old_model, c_new_model])
+        await session.commit()
+
+        # Blocking HTTP transport sleeps 0.15s; concurrent coroutine must tick
+        def _slow_transport(url, payload, headers, timeout):
+            time.sleep(0.15)
+            return {"embeddings": [[1.0, 0.0, 0.0, 0.0]]}
+
+        http_emb = HttpEmbeddingService(
+            base_url="http://localhost:11434",
+            model_name="bge-small",
+            dimension=4,
+            transport=_slow_transport,
+        )
+        retriever = PostgresDenseRetriever(
+            session_or_factory=session,
+            embedding_service=http_emb,
+        )
+
+        ticks = 0
+
+        async def _ticker() -> None:
+            nonlocal ticks
+            for _ in range(3):
+                await asyncio.sleep(0.02)
+                ticks += 1
+
+        results, _ = await asyncio.gather(
+            retriever.retrieve(
+                RetrievalQuery(
+                    query_text="model isolation",
+                    filter=RetrievalFilter(
+                        workspace_id=ws, security_domains=["public"]
+                    ),
+                    top_k=5,
+                )
+            ),
+            _ticker(),
+        )
+        # Event loop was NOT blocked while HTTP transport slept
+        assert ticks == 3
+        # Only bge-small chunk returned; old-model-a chunk strictly excluded
+        assert [r.chunk_id for r in results] == [c_new_model.id]
 

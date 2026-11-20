@@ -3,6 +3,7 @@
 import abc
 import math
 import re
+import threading
 from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from rag_foundry.retrieval.models import RankedChunk
@@ -155,9 +156,14 @@ class CrossEncoderReranker(RerankerService):
         self.allow_fallback = allow_fallback
         self.normalization = norm_mode
         self.device = device
+        self._load_failed = False
+        self._load_lock = threading.Lock()
 
     def _resolve_model(self) -> Optional[Any]:
         """Lazily load `sentence_transformers.CrossEncoder` if needed.
+
+        Caches load failures when `allow_fallback` is `True` so air-gapped
+        deployments do not repeatedly retry imports or hub downloads.
 
         Returns:
             Loaded model object, or `None` when falling back is permitted.
@@ -168,27 +174,37 @@ class CrossEncoderReranker(RerankerService):
         """
         if self._model is not None:
             return self._model
+        if self._load_failed and self.allow_fallback:
+            return None
 
-        try:
-            from sentence_transformers import CrossEncoder
-        except ImportError as exc:
-            if self.allow_fallback:
+        with self._load_lock:
+            if self._model is not None:
+                return self._model
+            if self._load_failed and self.allow_fallback:
                 return None
-            raise ImportError(
-                "CrossEncoderReranker requires optional ML dependencies. "
-                "Install with: pip install 'rag-foundry[ml]'"
-            ) from exc
 
-        kwargs: dict[str, Any] = {}
-        if self.device is not None:
-            kwargs["device"] = self.device
-        try:
-            self._model = CrossEncoder(self.model_name, **kwargs)
-        except Exception:
-            if self.allow_fallback:
-                return None
-            raise
-        return self._model
+            try:
+                from sentence_transformers import CrossEncoder
+            except ImportError as exc:
+                if self.allow_fallback:
+                    self._load_failed = True
+                    return None
+                raise ImportError(
+                    "CrossEncoderReranker requires optional ML dependencies. "
+                    "Install with: pip install 'rag-foundry[ml]'"
+                ) from exc
+
+            kwargs: dict[str, Any] = {}
+            if self.device is not None:
+                kwargs["device"] = self.device
+            try:
+                self._model = CrossEncoder(self.model_name, **kwargs)
+            except Exception:
+                if self.allow_fallback:
+                    self._load_failed = True
+                    return None
+                raise
+            return self._model
 
     def rerank(
         self, query: str, candidates: List[RankedChunk], top_k: int = 10
