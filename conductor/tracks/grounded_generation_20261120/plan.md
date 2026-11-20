@@ -1,6 +1,6 @@
 # Implementation Plan: Phase 6 — Grounded Generation & Citations
 
-## Phase 1: Model Gateway, Approved Profiles & Local/Air-Gapped Chat Adapters (`ADR-0006`)
+## Phase 1: Model Gateway, Approved Profiles & Local/Air-Gapped Chat Adapters (`ADR-0006`) [checkpoint: ec1e71e]
 
 - [x] Task: Build `ModelProfile` domain models, `ModelProfileRepository` protocol, and `InMemoryModelProfileRegistry` 0b7c334
   - [x] Write failing unit tests in `tests/test_model_gateway_profiles.py` covering `ModelProfile` validation (task, provider, status `draft|approved|deprecated`, `deployment_policy` `local_only|approved_remote`, inference settings), `ModelProfileRepository` protocol conformance, versioned profile registration/lookup, and rejection of duplicate `(profile_id, version)` pairs
@@ -14,7 +14,7 @@
   - [x] Write failing tests in `tests/test_model_gateway.py` verifying fail-closed rejection of unknown, `draft`, `deprecated`, or task-mismatched profiles, enforcement of `local_only` host boundary (rejecting non-local URLs and forbidding hidden remote fallbacks), rejection of caller-supplied ad-hoc endpoints/API keys, reproducibility trace metadata on `ChatGenerationResponse`, and non-blocking `asyncio.to_thread` execution during slow HTTP calls
   - [x] Implement `src/rag_foundry/model_gateway/gateway.py` and wire exports in `src/rag_foundry/model_gateway/__init__.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) ec1e71e
 
 ## Phase 2: Structured Answer Schema, Curated-vs-Extracted Evidence Formatter & Prompt Policies (`ADR-0013`)
 
