@@ -48,7 +48,7 @@
   - [x] Refactor and verify >80% module coverage
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 7e9dbad
 
-## Phase 4: Grounded QA Orchestrator (`standard`, `curated_knowledge`, `decomposed`) & End-to-End Exit-Criteria Suite
+## Phase 4: Grounded QA Orchestrator (`standard`, `curated_knowledge`, `decomposed`) & End-to-End Exit-Criteria Suite [checkpoint: 153c64f]
 
 - [x] Task: Implement `GroundedQAPipeline` for `standard` and `curated_knowledge` QA modes d010476
   - [x] Write failing tests in `tests/test_grounded_qa_pipeline.py` covering end-to-end execution across `RetrievalPipeline` -> `AssertionContextLoader` -> `EvidenceFormatter` -> `ModelGateway` -> `CitationAligner` -> `CitationValidator` -> `SufficiencyGate`, verifying `standard` mode grounding, `curated_knowledge` prioritization and candidate segregation, malformed LLM output abstention, and `semantic_profile_id` / `model_profile_id` trace recording
@@ -61,4 +61,4 @@
 - [x] Task: End-to-end Phase 6 exit-criteria integration & regression suite 153c64f
   - [x] Write failing integration tests in `tests/test_phase6_end_to_end.py` validating all Phase 6 exit criteria end-to-end (`IngestionPipeline` -> `IndexerService` -> `RetrievalPipeline` + `AssertionRecord`s -> `GroundedQAPipeline` across `standard`, `curated_knowledge`, and `decomposed` modes): (1) every supported claim links to supplied authorized evidence, (2) invalid/unauthorized/superseded citation IDs are rejected, (3) low-evidence questions trigger explicit warning or abstention, (4) curated and extracted knowledge are visibly distinguished, and (5) unapproved model profiles fail closed
   - [x] Resolve any integration gaps and verify the full `pytest` suite and >80% coverage gates pass across all new modules
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 153c64f
