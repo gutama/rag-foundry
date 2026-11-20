@@ -1,0 +1,69 @@
+"""Governed Model Gateway, approved profiles, and chat adapters (ADR-0006)."""
+
+from rag_foundry.model_gateway.adapters import (
+    AdapterCompletionResult,
+    ChatModelAdapter,
+    HttpTransport,
+    MockDeterministicChatAdapter,
+    MockResponder,
+    OllamaChatAdapter,
+    OpenAICompatibleChatAdapter,
+    default_http_transport,
+)
+from rag_foundry.model_gateway.gateway import (
+    ModelGateway,
+    is_local_or_private_host,
+)
+from rag_foundry.model_gateway.models import (
+    ChatGenerationRequest,
+    ChatGenerationResponse,
+    ChatMessage,
+    DataHandlingClass,
+    DeploymentPolicy,
+    DuplicateModelProfileError,
+    InferenceSettings,
+    ModelAdapterError,
+    ModelGatewayError,
+    ModelProfile,
+    ModelProfileNotFoundError,
+    ModelProfilePolicyError,
+    ModelProfileStatus,
+    ModelProvider,
+    ModelTask,
+    TokenUsage,
+)
+from rag_foundry.model_gateway.registry import (
+    InMemoryModelProfileRegistry,
+    ModelProfileRepository,
+)
+
+__all__ = [
+    "AdapterCompletionResult",
+    "ChatGenerationRequest",
+    "ChatGenerationResponse",
+    "ChatMessage",
+    "ChatModelAdapter",
+    "DataHandlingClass",
+    "DeploymentPolicy",
+    "DuplicateModelProfileError",
+    "HttpTransport",
+    "InMemoryModelProfileRegistry",
+    "InferenceSettings",
+    "MockDeterministicChatAdapter",
+    "MockResponder",
+    "ModelAdapterError",
+    "ModelGateway",
+    "ModelGatewayError",
+    "ModelProfile",
+    "ModelProfileNotFoundError",
+    "ModelProfilePolicyError",
+    "ModelProfileRepository",
+    "ModelProfileStatus",
+    "ModelProvider",
+    "ModelTask",
+    "OllamaChatAdapter",
+    "OpenAICompatibleChatAdapter",
+    "TokenUsage",
+    "default_http_transport",
+    "is_local_or_private_host",
+]
