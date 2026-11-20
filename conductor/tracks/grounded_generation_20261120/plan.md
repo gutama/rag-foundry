@@ -50,10 +50,10 @@
 
 ## Phase 4: Grounded QA Orchestrator (`standard`, `curated_knowledge`, `decomposed`) & End-to-End Exit-Criteria Suite
 
-- [ ] Task: Implement `GroundedQAPipeline` for `standard` and `curated_knowledge` QA modes
-  - [ ] Write failing tests in `tests/test_grounded_qa_pipeline.py` covering end-to-end execution across `RetrievalPipeline` -> `AssertionContextLoader` -> `EvidenceFormatter` -> `ModelGateway` -> `CitationAligner` -> `CitationValidator` -> `SufficiencyGate`, verifying `standard` mode grounding, `curated_knowledge` prioritization and candidate segregation, malformed LLM output abstention, and `semantic_profile_id` / `model_profile_id` trace recording
-  - [ ] Implement `src/rag_foundry/generation/pipeline.py` and wire exports in `src/rag_foundry/generation/__init__.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Implement `GroundedQAPipeline` for `standard` and `curated_knowledge` QA modes d010476
+  - [x] Write failing tests in `tests/test_grounded_qa_pipeline.py` covering end-to-end execution across `RetrievalPipeline` -> `AssertionContextLoader` -> `EvidenceFormatter` -> `ModelGateway` -> `CitationAligner` -> `CitationValidator` -> `SufficiencyGate`, verifying `standard` mode grounding, `curated_knowledge` prioritization and candidate segregation, malformed LLM output abstention, and `semantic_profile_id` / `model_profile_id` trace recording
+  - [x] Implement `src/rag_foundry/generation/pipeline.py` and wire exports in `src/rag_foundry/generation/__init__.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Implement `QueryDecomposer` and `decomposed` multi-step QA mode
   - [ ] Write failing tests in `tests/test_decomposed_qa.py` covering complex question decomposition (LLM-assisted via `ModelGateway` + deterministic fallback splitter), `max_sub_questions` bounds, per-sub-question authorized retrieval and grounded sub-answering, deduplicated evidence handle merging, final synthesized `GroundedAnswer` re-validation, and sub-question provenance traces in `execution_metrics`
   - [ ] Implement `src/rag_foundry/generation/decomposer.py` and integrate `decomposed` mode into `src/rag_foundry/generation/pipeline.py`
