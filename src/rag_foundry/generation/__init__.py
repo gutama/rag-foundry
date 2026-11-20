@@ -1,5 +1,7 @@
 """Grounded generation, formatting, context loading, and QA orchestration."""
 
+from typing import TYPE_CHECKING, Any
+
 from rag_foundry.generation.context import (
     AssertionContextLoader,
     AssertionContextProvider,
@@ -30,6 +32,27 @@ from rag_foundry.generation.prompts import (
     build_qa_messages,
 )
 
+if TYPE_CHECKING:
+    from rag_foundry.generation.pipeline import (
+        ChunkDomainResolver,
+        GroundedQAPipeline,
+        GroundedQARequest,
+    )
+
+_PIPELINE_EXPORTS = frozenset(
+    {"ChunkDomainResolver", "GroundedQAPipeline", "GroundedQARequest"}
+)
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily resolve orchestrator exports to avoid package-init cycles."""
+    if name in _PIPELINE_EXPORTS:
+        from rag_foundry.generation import pipeline
+
+        return getattr(pipeline, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "AnswerClaim",
     "AnswerParseError",
@@ -37,6 +60,7 @@ __all__ = [
     "AssertionContextProvider",
     "CURATED_BANNER",
     "CURATED_TAG",
+    "ChunkDomainResolver",
     "ClaimAuthority",
     "DOCUMENT_BANNER",
     "DOCUMENT_TAG",
@@ -46,6 +70,8 @@ __all__ = [
     "EvidenceFormatter",
     "FormattedEvidenceContext",
     "GroundedAnswer",
+    "GroundedQAPipeline",
+    "GroundedQARequest",
     "KnowledgeAuthority",
     "ParsedAnswerPayload",
     "QAMode",
