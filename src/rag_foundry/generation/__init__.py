@@ -7,6 +7,11 @@ from rag_foundry.generation.context import (
     AssertionContextProvider,
     load_chunk_security_domains,
 )
+from rag_foundry.generation.decomposer import (
+    DecompositionResult,
+    QueryDecomposer,
+    deterministic_split_question,
+)
 from rag_foundry.generation.formatter import (
     CURATED_BANNER,
     CURATED_TAG,
@@ -64,6 +69,7 @@ __all__ = [
     "ClaimAuthority",
     "DOCUMENT_BANNER",
     "DOCUMENT_TAG",
+    "DecompositionResult",
     "EXTRACTED_BANNER",
     "EXTRACTED_TAG",
     "EvidenceEntry",
@@ -75,8 +81,10 @@ __all__ = [
     "KnowledgeAuthority",
     "ParsedAnswerPayload",
     "QAMode",
+    "QueryDecomposer",
     "build_decomposition_messages",
     "build_qa_messages",
+    "deterministic_split_question",
     "load_chunk_security_domains",
     "parse_model_answer",
 ]

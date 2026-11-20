@@ -24,6 +24,7 @@ from rag_foundry.generation.context import (
     AssertionContextProvider,
     load_chunk_security_domains,
 )
+from rag_foundry.generation.decomposer import QueryDecomposer
 from rag_foundry.generation.formatter import (
     EvidenceFormatter,
     FormattedEvidenceContext,
@@ -145,6 +146,7 @@ class GroundedQAPipeline:
         sufficiency_gate: Optional[SufficiencyGate] = None,
         default_policy: Optional[CitationValidationPolicy] = None,
         chunk_domain_resolver: Optional[ChunkDomainResolver] = None,
+        query_decomposer: Optional[QueryDecomposer] = None,
     ) -> None:
         """Initialize GroundedQAPipeline with modular governed components.
 
@@ -161,6 +163,7 @@ class GroundedQAPipeline:
             default_policy: Optional default CitationValidationPolicy.
             chunk_domain_resolver: Optional async callback resolving chunk IDs
                 to security domain names.
+            query_decomposer: Optional QueryDecomposer for decomposed QA mode.
         """
         self._retrieval = retrieval_pipeline
         self._gateway = model_gateway
@@ -179,6 +182,9 @@ class GroundedQAPipeline:
         self._gate = sufficiency_gate or SufficiencyGate()
         self._default_policy = default_policy or CitationValidationPolicy()
         self._chunk_domain_resolver = chunk_domain_resolver
+        self._decomposer = query_decomposer or QueryDecomposer(
+            model_gateway=model_gateway
+        )
 
     def _validate_caller_authorization(
         self,
@@ -429,6 +435,17 @@ class GroundedQAPipeline:
                 execution_metrics={"duration_ms": elapsed_ms},
             )
 
+        if request.qa_mode == "decomposed":
+            return await self._execute_decomposed(
+                request=request,
+                security_context=security_context,
+                effective_domains=effective_domains,
+                policy=policy,
+                resolved_profile_id=resolved_profile.profile_id,
+                resolved_profile_version=resolved_profile.version,
+                start_time=start,
+            )
+
         retrieval_result, doc_entries, assertion_entries = (
             await self._gather_authorized_evidence(
                 question=request.question,
@@ -496,3 +513,175 @@ class GroundedQAPipeline:
         merged_metrics = dict(result.execution_metrics)
         merged_metrics["duration_ms"] = total_ms
         return result.model_copy(update={"execution_metrics": merged_metrics})
+
+    @staticmethod
+    def _deduplicate_entries(
+        entries: Sequence[EvidenceEntry],
+    ) -> List[EvidenceEntry]:
+        """Deduplicate evidence entries preserving deterministic order."""
+        by_key: Dict[Tuple[str, str], EvidenceEntry] = {}
+        order: List[Tuple[str, str]] = []
+        for entry in entries:
+            if entry.assertion_id is not None:
+                key = ("assertion", str(entry.assertion_id))
+            elif entry.chunk_id is not None:
+                key = ("chunk", str(entry.chunk_id))
+            else:
+                key = (entry.authority.value, entry.text)
+            if key not in by_key:
+                by_key[key] = entry
+                order.append(key)
+            elif entry.confidence_score > by_key[key].confidence_score:
+                by_key[key] = entry
+        return [by_key[k] for k in order]
+
+    async def _execute_decomposed(
+        self,
+        *,
+        request: GroundedQARequest,
+        security_context: SecurityContext,
+        effective_domains: Sequence[str],
+        policy: CitationValidationPolicy,
+        resolved_profile_id: str,
+        resolved_profile_version: str,
+        start_time: float,
+    ) -> GroundedAnswer:
+        """Execute multi-step decomposed QA with merged re-validation."""
+        decomp = await self._decomposer.decompose(
+            request.question,
+            max_sub_questions=request.max_sub_questions,
+            profile_id=request.decomposition_profile_id,
+            profile_version=request.decomposition_profile_version,
+        )
+
+        merged_docs: List[EvidenceEntry] = []
+        merged_assertions: List[EvidenceEntry] = []
+        sub_traces: List[Dict[str, Any]] = []
+        summary_lines: List[str] = []
+
+        for idx, sub_q in enumerate(decomp.sub_questions, start=1):
+            sub_ret, sub_docs, sub_assertions = (
+                await self._gather_authorized_evidence(
+                    question=sub_q,
+                    request=request,
+                    security_context=security_context,
+                    effective_domains=effective_domains,
+                )
+            )
+            merged_docs.extend(sub_docs)
+            merged_assertions.extend(sub_assertions)
+
+            sub_fmt = self._formatter.format(
+                document_entries=sub_docs,
+                assertion_entries=sub_assertions,
+                mode="standard",
+                include_extracted_candidates=(
+                    request.include_extracted_candidates
+                ),
+            )
+            if not sub_fmt.entries or (
+                sub_ret.is_abstained and not sub_assertions
+            ):
+                reason = (
+                    sub_ret.abstention.reason
+                    or "No authorized evidence found for sub-question."
+                )
+                sub_traces.append(
+                    {
+                        "sub_question": sub_q,
+                        "abstained": True,
+                        "sufficient_evidence": False,
+                        "answer": "",
+                        "claim_count": 0,
+                        "evidence_count": len(sub_fmt.entries),
+                        "abstention_reason": reason,
+                    }
+                )
+                summary_lines.append(
+                    f"{idx}. {sub_q} -> No sufficient authorized evidence."
+                )
+                continue
+
+            sub_ans = await self._generate_and_validate(
+                question=sub_q,
+                formatted=sub_fmt,
+                request=request,
+                security_context=security_context,
+                policy=policy,
+                mode="standard",
+            )
+            sub_traces.append(
+                {
+                    "sub_question": sub_q,
+                    "abstained": sub_ans.abstained,
+                    "sufficient_evidence": sub_ans.sufficient_evidence,
+                    "answer": sub_ans.answer,
+                    "claim_count": len(sub_ans.claims),
+                    "evidence_count": len(sub_fmt.entries),
+                    "abstention_reason": sub_ans.abstention_reason,
+                }
+            )
+            finding = (
+                sub_ans.answer
+                if not sub_ans.abstained
+                else f"Abstained ({sub_ans.abstention_reason})"
+            )
+            summary_lines.append(f"{idx}. {sub_q} -> {finding}")
+
+        dedup_docs = self._deduplicate_entries(merged_docs)
+        dedup_assertions = self._deduplicate_entries(merged_assertions)
+
+        merged_formatted = self._formatter.format(
+            document_entries=dedup_docs,
+            assertion_entries=dedup_assertions,
+            mode="decomposed",
+            include_extracted_candidates=request.include_extracted_candidates,
+        )
+        decomp_metrics: Dict[str, Any] = {
+            "method": decomp.method,
+            "decomposition_profile_id": decomp.model_profile_id,
+            "sub_questions": list(decomp.sub_questions),
+            "sub_question_traces": sub_traces,
+            "merged_evidence_count": len(merged_formatted.entries),
+        }
+
+        if not merged_formatted.entries:
+            elapsed_ms = round((time.perf_counter() - start_time) * 1000.0, 3)
+            return self._gate.evaluate(
+                payload=None,
+                report=None,
+                evidence_map={},
+                policy=policy,
+                retrieval_abstention=AbstentionResult(
+                    abstained=True,
+                    reason=(
+                        "No authorized evidence was retrieved across any "
+                        "decomposed sub-question."
+                    ),
+                ),
+                qa_mode="decomposed",
+                semantic_profile_id=request.semantic_profile_id,
+                model_profile_id=resolved_profile_id,
+                model_profile_version=resolved_profile_version,
+                execution_metrics={
+                    "duration_ms": elapsed_ms,
+                    "decomposition": decomp_metrics,
+                },
+            )
+
+        synthesized = await self._generate_and_validate(
+            question=request.question,
+            formatted=merged_formatted,
+            request=request,
+            security_context=security_context,
+            policy=policy,
+            mode="decomposed",
+            extra_metrics={"decomposition": decomp_metrics},
+            sub_answers_summary="\n".join(summary_lines),
+        )
+        total_ms = round((time.perf_counter() - start_time) * 1000.0, 3)
+        final_metrics = dict(synthesized.execution_metrics)
+        final_metrics["duration_ms"] = total_ms
+        return synthesized.model_copy(
+            update={"execution_metrics": final_metrics}
+        )
