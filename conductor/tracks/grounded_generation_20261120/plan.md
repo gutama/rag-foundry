@@ -2,10 +2,10 @@
 
 ## Phase 1: Model Gateway, Approved Profiles & Local/Air-Gapped Chat Adapters (`ADR-0006`)
 
-- [ ] Task: Build `ModelProfile` domain models, `ModelProfileRepository` protocol, and `InMemoryModelProfileRegistry`
-  - [ ] Write failing unit tests in `tests/test_model_gateway_profiles.py` covering `ModelProfile` validation (task, provider, status `draft|approved|deprecated`, `deployment_policy` `local_only|approved_remote`, inference settings), `ModelProfileRepository` protocol conformance, versioned profile registration/lookup, and rejection of duplicate `(profile_id, version)` pairs
-  - [ ] Implement `src/rag_foundry/model_gateway/__init__.py`, `src/rag_foundry/model_gateway/models.py`, and `src/rag_foundry/model_gateway/registry.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Build `ModelProfile` domain models, `ModelProfileRepository` protocol, and `InMemoryModelProfileRegistry` 0b7c334
+  - [x] Write failing unit tests in `tests/test_model_gateway_profiles.py` covering `ModelProfile` validation (task, provider, status `draft|approved|deprecated`, `deployment_policy` `local_only|approved_remote`, inference settings), `ModelProfileRepository` protocol conformance, versioned profile registration/lookup, and rejection of duplicate `(profile_id, version)` pairs
+  - [x] Implement `src/rag_foundry/model_gateway/__init__.py`, `src/rag_foundry/model_gateway/models.py`, and `src/rag_foundry/model_gateway/registry.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Implement stdlib HTTP chat adapters and deterministic mock adapter
   - [ ] Write failing unit tests in `tests/test_model_gateway_adapters.py` covering `ChatModelAdapter` protocol, `OllamaChatAdapter` (`/api/chat` payload, JSON mode, timeout/HTTP/JSON error handling), `OpenAICompatibleChatAdapter` (`/v1/chat/completions` payload, bearer auth, response parsing), and `MockDeterministicChatAdapter` (deterministic structured JSON output and custom responder hooks)
   - [ ] Implement `src/rag_foundry/model_gateway/adapters.py` using stdlib `urllib.request` with injectable transport (zero mandatory heavy LLM SDKs)
