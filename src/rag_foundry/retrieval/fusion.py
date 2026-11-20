@@ -74,9 +74,11 @@ class ReciprocalRankFusion:
         candidate_list: List[RankedChunk] = []
         for chunk_id, chunk in merged_chunks.items():
             chunk.score = round(rrf_scores[chunk_id], 6)
+            chunk.retrieval_sources.sort()
+            chunk.page_numbers.sort()
             candidate_list.append(chunk)
 
-        # Sort descending by RRF score
-        candidate_list.sort(key=lambda c: c.score, reverse=True)
+        # Sort descending by RRF score with deterministic chunk_id tie-break
+        candidate_list.sort(key=lambda c: (-c.score, str(c.chunk_id)))
 
         return candidate_list[:top_k]

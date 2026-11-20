@@ -1,5 +1,6 @@
 """Dense semantic vector retrieval service with cosine similarity and pgvector compatibility."""
 
+import asyncio
 import math
 import uuid
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,7 @@ from rag_foundry.retrieval.models import (
     RankedChunk,
     RetrievalQuery,
 )
+from rag_foundry.retrieval.postgres_filters import matches_metadata_filters
 
 
 class DenseVectorRecord(BaseModel):
@@ -56,7 +58,9 @@ class DenseVectorRetriever:
                 indices_to_embed.append(idx)
 
         if texts_to_embed:
-            computed_embeddings = self.embedding_service.embed_texts(texts_to_embed)
+            computed_embeddings = await asyncio.to_thread(
+                self.embedding_service.embed_texts, texts_to_embed
+            )
             for idx, emb in zip(indices_to_embed, computed_embeddings):
                 records[idx].vector = emb
 
@@ -85,7 +89,9 @@ class DenseVectorRetriever:
         Returns:
             List of RankedChunk objects ordered by cosine similarity descending.
         """
-        query_vector = self.embedding_service.embed_query(query.query_text)
+        query_vector = await asyncio.to_thread(
+            self.embedding_service.embed_query, query.query_text
+        )
         scored_candidates: List[RankedChunk] = []
 
         for rec in self._records.values():
@@ -105,14 +111,10 @@ class DenseVectorRetriever:
                 continue
 
             # 4. Metadata filters if present
-            if query.filter.metadata_filters:
-                mismatch = False
-                for k, v in query.filter.metadata_filters.items():
-                    if rec.metadata.get(k) != v:
-                        mismatch = True
-                        break
-                if mismatch:
-                    continue
+            if not matches_metadata_filters(
+                rec.metadata, query.filter.metadata_filters
+            ):
+                continue
 
             # Compute similarity score
             if rec.vector is None:
@@ -138,8 +140,8 @@ class DenseVectorRetriever:
                 )
             )
 
-        # Sort descending by similarity score
-        scored_candidates.sort(key=lambda x: x.score, reverse=True)
+        # Sort descending by score with deterministic chunk_id tie-break
+        scored_candidates.sort(key=lambda x: (-x.score, str(x.chunk_id)))
 
         # Truncate to top_k and assign dense_rank
         top_candidates = scored_candidates[: query.top_k]

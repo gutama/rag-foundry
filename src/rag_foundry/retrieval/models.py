@@ -76,6 +76,20 @@ class RetrievalQuery(BaseModel):
         le=1.0,
         description="Minimum score threshold for candidate retention / abstention",
     )
+    original_query_text: Optional[str] = Field(
+        default=None,
+        description=(
+            "Original unmodified query preserved when query expansion "
+            "rewrites query_text for lexical search"
+        ),
+    )
+    expanded_term_weights: Dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Lowercase expanded term to decay-weight mapping used for "
+            "exact-term-preserving lexical ranking"
+        ),
+    )
 
 
 class RankedChunk(BaseModel):
