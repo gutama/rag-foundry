@@ -23,7 +23,8 @@
 - **Scale / Enterprise Options:** Qdrant (Dense Vector), OpenSearch (Lexical Search), Redis (Caching & Job Queue)
 
 ## Models & AI Services
-- **LLM Serving:** Ollama / vLLM (Local / Air-gapped execution)
+- **LLM Serving & Model Gateway (ADR-0006):** Fail-closed `ModelGateway` over versioned, server-approved `ModelProfile` records (protocol-backed in-memory/config registry in Phase 6) with stdlib `urllib.request` chat adapters (`OllamaChatAdapter` `/api/chat`, `OpenAICompatibleChatAdapter` `/v1/chat/completions` for vLLM) offloaded via `asyncio.to_thread` and deterministic mock adapter — zero mandatory third-party LLM SDK dependencies
+- **Grounded Generation & Citation Validation (ADR-0013 / ADR-0020):** Structured Pydantic answer contracts (`GroundedAnswer`, `AnswerClaim`, `EvidenceEntry`), curated-vs-extracted evidence formatting, `AssertionContextLoader`, deterministic `CitationAligner`, fail-closed `CitationValidator`, `SufficiencyGate`, and `GroundedQAPipeline` (`standard`, `curated_knowledge`, and `decomposed` modes)
 - **Embeddings & Reranking:** Local HTTP embedding adapter (Ollama `/api/embed` and OpenAI-compatible `/v1/embeddings` via stdlib HTTP with no mandatory ML dependencies), plus lazy `sentence-transformers` and HuggingFace Cross-Encoder adapters via optional `rag-foundry[ml]` extra
 
 ## Observability & Evaluation
