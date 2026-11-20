@@ -10,6 +10,10 @@ from rag_foundry.model_gateway.adapters import (
     OpenAICompatibleChatAdapter,
     default_http_transport,
 )
+from rag_foundry.model_gateway.gateway import (
+    ModelGateway,
+    is_local_or_private_host,
+)
 from rag_foundry.model_gateway.models import (
     ChatGenerationRequest,
     ChatGenerationResponse,
@@ -48,6 +52,7 @@ __all__ = [
     "MockDeterministicChatAdapter",
     "MockResponder",
     "ModelAdapterError",
+    "ModelGateway",
     "ModelGatewayError",
     "ModelProfile",
     "ModelProfileNotFoundError",
@@ -60,4 +65,5 @@ __all__ = [
     "OpenAICompatibleChatAdapter",
     "TokenUsage",
     "default_http_transport",
+    "is_local_or_private_host",
 ]
