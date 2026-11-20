@@ -38,10 +38,10 @@
   - [x] Write failing unit tests in `tests/test_citation_aligner.py` covering `CitationValidationPolicy` validation, claim-to-passage lexical/phrase/key-token support scoring, source span resolution (`document_version_id`, `page_numbers`, `bounding_boxes`, `section_path`), effective claim `KnowledgeAuthority` derivation (`curated`, `extracted`, `document_evidence`, `mixed`), and detection of unsupported synthetic claims
   - [x] Implement `src/rag_foundry/citations/__init__.py`, `src/rag_foundry/citations/models.py`, and `src/rag_foundry/citations/aligner.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Implement fail-closed `CitationValidator`
-  - [ ] Write failing unit tests in `tests/test_citation_validator.py` verifying rejection of fabricated/unknown citation IDs, rejection of citations unauthorized under caller `SecurityContext` (workspace or security domain), rejection of superseded `document_version_id` revisions, rejection of unresolvable source spans, and detection of curated-vs-extracted misrepresentation (claiming curated certainty from candidate-only extracted evidence)
-  - [ ] Implement `src/rag_foundry/citations/validator.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Implement fail-closed `CitationValidator` 18bfafd
+  - [x] Write failing unit tests in `tests/test_citation_validator.py` verifying rejection of fabricated/unknown citation IDs, rejection of citations unauthorized under caller `SecurityContext` (workspace or security domain), rejection of superseded `document_version_id` revisions, rejection of unresolvable source spans, and detection of curated-vs-extracted misrepresentation (claiming curated certainty from candidate-only extracted evidence)
+  - [x] Implement `src/rag_foundry/citations/validator.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Implement `SufficiencyGate` for warnings, claim stripping, and explicit abstention
   - [ ] Write failing unit tests in `tests/test_sufficiency_gate.py` covering retrieval-level abstention propagation, invalid-citation abstention, insufficient supported-claim ratio triggers, `unsupported_claim_action` modes (`abstain`, `strip_and_warn`, `warn`), `allow_extracted_only_answers=False` enforcement, and visible curated-vs-extracted disclosure in `limitations`
   - [ ] Implement `src/rag_foundry/citations/sufficiency.py` and export public symbols in `src/rag_foundry/citations/__init__.py`
