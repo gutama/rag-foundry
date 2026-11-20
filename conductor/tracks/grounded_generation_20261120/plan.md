@@ -18,10 +18,10 @@
 
 ## Phase 2: Structured Answer Schema, Curated-vs-Extracted Evidence Formatter & Prompt Policies (`ADR-0013`)
 
-- [ ] Task: Build structured answer models and strict JSON response parser
-  - [ ] Write failing unit tests in `tests/test_generation_models.py` covering `KnowledgeAuthority` (`curated`, `extracted`, `document_evidence`), `EvidenceEntry`, `AnswerClaim`, `GroundedAnswer`, strict parsing of raw and fenced JSON model outputs, deterministic field defaults, and fail-closed `AnswerParseError` on malformed or schema-invalid outputs
-  - [ ] Implement `src/rag_foundry/generation/__init__.py`, `src/rag_foundry/generation/models.py`, and `src/rag_foundry/generation/parser.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Build structured answer models and strict JSON response parser 0f06ab5
+  - [x] Write failing unit tests in `tests/test_generation_models.py` covering `KnowledgeAuthority` (`curated`, `extracted`, `document_evidence`), `EvidenceEntry`, `AnswerClaim`, `GroundedAnswer`, strict parsing of raw and fenced JSON model outputs, deterministic field defaults, and fail-closed `AnswerParseError` on malformed or schema-invalid outputs
+  - [x] Implement `src/rag_foundry/generation/__init__.py`, `src/rag_foundry/generation/models.py`, and `src/rag_foundry/generation/parser.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Implement `EvidenceFormatter` with curated-vs-extracted labeling and prompt policies
   - [ ] Write failing unit tests in `tests/test_evidence_formatter.py` covering deterministic handle assignment (`E1..En`, `A1..An`), explicit `[CURATED / APPROVED]` vs. `[EXTRACTED / CANDIDATE — UNVERIFIED]` vs. `[DOCUMENT EVIDENCE]` context blocks, deterministic ordering, character budget truncation, and mode-specific prompt policies (`standard`, `curated_knowledge`, `decomposed`)
   - [ ] Implement `src/rag_foundry/generation/formatter.py` and `src/rag_foundry/generation/prompts.py`
