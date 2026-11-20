@@ -14,6 +14,7 @@ from rag_foundry.citations.models import (
     SourceSpan,
     UnsupportedClaimAction,
 )
+from rag_foundry.citations.sufficiency import SufficiencyGate
 from rag_foundry.citations.validator import CitationValidator
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "CitationValidator",
     "ClaimAlignmentResult",
     "SourceSpan",
+    "SufficiencyGate",
     "UnsupportedClaimAction",
     "derive_effective_authority",
     "resolve_source_span",
