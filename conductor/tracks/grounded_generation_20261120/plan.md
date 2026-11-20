@@ -16,7 +16,7 @@
   - [x] Refactor and verify >80% module coverage
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) ec1e71e
 
-## Phase 2: Structured Answer Schema, Curated-vs-Extracted Evidence Formatter & Prompt Policies (`ADR-0013`)
+## Phase 2: Structured Answer Schema, Curated-vs-Extracted Evidence Formatter & Prompt Policies (`ADR-0013`) [checkpoint: d465b0d]
 
 - [x] Task: Build structured answer models and strict JSON response parser 0f06ab5
   - [x] Write failing unit tests in `tests/test_generation_models.py` covering `KnowledgeAuthority` (`curated`, `extracted`, `document_evidence`), `EvidenceEntry`, `AnswerClaim`, `GroundedAnswer`, strict parsing of raw and fenced JSON model outputs, deterministic field defaults, and fail-closed `AnswerParseError` on malformed or schema-invalid outputs
@@ -30,7 +30,7 @@
   - [x] Write failing tests in `tests/test_assertion_context_loader.py` covering loading workspace/profile-scoped `AssertionRecord` rows with entity preferred labels and `source_chunk_ids`, strict `SecurityContext` authorization before disclosure, fail-closed empty `allowed_security_domains`, deterministic classification into `curated` vs. `extracted` `EvidenceEntry` objects, and exclusion of `rejected`/`superseded` assertions
   - [x] Implement `src/rag_foundry/generation/context.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) d465b0d
 
 ## Phase 3: Post-Generation Citation Alignment, Validation & Sufficiency/Abstention Gate (`ADR-0020`)
 
