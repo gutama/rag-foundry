@@ -7,5 +7,5 @@
 
 ---
 
-- [ ] **Track: Phase 6: Grounded Generation, Model Gateway & Citations**
+- [~] **Track: Phase 6: Grounded Generation, Model Gateway & Citations**
   *Link: [./tracks/grounded_generation_20261120/index.md](./tracks/grounded_generation_20261120/index.md)*
