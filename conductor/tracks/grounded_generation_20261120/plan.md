@@ -10,10 +10,10 @@
   - [x] Write failing unit tests in `tests/test_model_gateway_adapters.py` covering `ChatModelAdapter` protocol, `OllamaChatAdapter` (`/api/chat` payload, JSON mode, timeout/HTTP/JSON error handling), `OpenAICompatibleChatAdapter` (`/v1/chat/completions` payload, bearer auth, response parsing), and `MockDeterministicChatAdapter` (deterministic structured JSON output and custom responder hooks)
   - [x] Implement `src/rag_foundry/model_gateway/adapters.py` using stdlib `urllib.request` with injectable transport (zero mandatory heavy LLM SDKs)
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Build fail-closed `ModelGateway` with policy enforcement and non-blocking async execution
-  - [ ] Write failing tests in `tests/test_model_gateway.py` verifying fail-closed rejection of unknown, `draft`, `deprecated`, or task-mismatched profiles, enforcement of `local_only` host boundary (rejecting non-local URLs and forbidding hidden remote fallbacks), rejection of caller-supplied ad-hoc endpoints/API keys, reproducibility trace metadata on `ChatGenerationResponse`, and non-blocking `asyncio.to_thread` execution during slow HTTP calls
-  - [ ] Implement `src/rag_foundry/model_gateway/gateway.py` and wire exports in `src/rag_foundry/model_gateway/__init__.py`
-  - [ ] Refactor and verify >80% module coverage
+- [x] Task: Build fail-closed `ModelGateway` with policy enforcement and non-blocking async execution ec1e71e
+  - [x] Write failing tests in `tests/test_model_gateway.py` verifying fail-closed rejection of unknown, `draft`, `deprecated`, or task-mismatched profiles, enforcement of `local_only` host boundary (rejecting non-local URLs and forbidding hidden remote fallbacks), rejection of caller-supplied ad-hoc endpoints/API keys, reproducibility trace metadata on `ChatGenerationResponse`, and non-blocking `asyncio.to_thread` execution during slow HTTP calls
+  - [x] Implement `src/rag_foundry/model_gateway/gateway.py` and wire exports in `src/rag_foundry/model_gateway/__init__.py`
+  - [x] Refactor and verify >80% module coverage
 - [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Structured Answer Schema, Curated-vs-Extracted Evidence Formatter & Prompt Policies (`ADR-0013`)
