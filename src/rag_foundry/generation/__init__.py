@@ -1,5 +1,10 @@
 """Grounded generation, formatting, context loading, and QA orchestration."""
 
+from rag_foundry.generation.context import (
+    AssertionContextLoader,
+    AssertionContextProvider,
+    load_chunk_security_domains,
+)
 from rag_foundry.generation.formatter import (
     CURATED_BANNER,
     CURATED_TAG,
@@ -28,6 +33,8 @@ from rag_foundry.generation.prompts import (
 __all__ = [
     "AnswerClaim",
     "AnswerParseError",
+    "AssertionContextLoader",
+    "AssertionContextProvider",
     "CURATED_BANNER",
     "CURATED_TAG",
     "ClaimAuthority",
@@ -44,5 +51,6 @@ __all__ = [
     "QAMode",
     "build_decomposition_messages",
     "build_qa_messages",
+    "load_chunk_security_domains",
     "parse_model_answer",
 ]
