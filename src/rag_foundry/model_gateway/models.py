@@ -45,6 +45,10 @@ class ModelProfilePolicyError(ModelGatewayError):
     """Raised when a profile violates approval, task, or network policy."""
 
 
+class ModelAdapterError(ModelGatewayError):
+    """Raised when a chat provider adapter encounters transport/parse errors."""
+
+
 class InferenceSettings(BaseModel):
     """Server-controlled inference hyperparameters for a ModelProfile."""
 
