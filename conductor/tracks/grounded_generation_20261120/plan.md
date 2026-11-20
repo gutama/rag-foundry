@@ -32,7 +32,7 @@
   - [x] Refactor and verify >80% module coverage
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) d465b0d
 
-## Phase 3: Post-Generation Citation Alignment, Validation & Sufficiency/Abstention Gate (`ADR-0020`)
+## Phase 3: Post-Generation Citation Alignment, Validation & Sufficiency/Abstention Gate (`ADR-0020`) [checkpoint: 7e9dbad]
 
 - [x] Task: Build `CitationValidationPolicy`, report models, and `CitationAligner` e6839db
   - [x] Write failing unit tests in `tests/test_citation_aligner.py` covering `CitationValidationPolicy` validation, claim-to-passage lexical/phrase/key-token support scoring, source span resolution (`document_version_id`, `page_numbers`, `bounding_boxes`, `section_path`), effective claim `KnowledgeAuthority` derivation (`curated`, `extracted`, `document_evidence`, `mixed`), and detection of unsupported synthetic claims
@@ -46,7 +46,7 @@
   - [x] Write failing unit tests in `tests/test_sufficiency_gate.py` covering retrieval-level abstention propagation, invalid-citation abstention, insufficient supported-claim ratio triggers, `unsupported_claim_action` modes (`abstain`, `strip_and_warn`, `warn`), `allow_extracted_only_answers=False` enforcement, and visible curated-vs-extracted disclosure in `limitations`
   - [x] Implement `src/rag_foundry/citations/sufficiency.py` and export public symbols in `src/rag_foundry/citations/__init__.py`
   - [x] Refactor and verify >80% module coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 7e9dbad
 
 ## Phase 4: Grounded QA Orchestrator (`standard`, `curated_knowledge`, `decomposed`) & End-to-End Exit-Criteria Suite
 
