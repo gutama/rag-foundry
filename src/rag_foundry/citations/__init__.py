@@ -14,6 +14,7 @@ from rag_foundry.citations.models import (
     SourceSpan,
     UnsupportedClaimAction,
 )
+from rag_foundry.citations.validator import CitationValidator
 
 __all__ = [
     "CitationAligner",
@@ -21,6 +22,7 @@ __all__ = [
     "CitationValidationIssueCode",
     "CitationValidationPolicy",
     "CitationValidationReport",
+    "CitationValidator",
     "ClaimAlignmentResult",
     "SourceSpan",
     "UnsupportedClaimAction",
